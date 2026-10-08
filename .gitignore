@@ -1,3 +1,4 @@
 uv.lock
 docs/build/
 docs/web/site
+build/*
