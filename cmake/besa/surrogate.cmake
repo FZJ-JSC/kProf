@@ -1,0 +1,113 @@
+# SPDX-FileCopyrightText: 2026 BESA developers
+# SPDX-FileCopyrightText: 2026 kprof developers
+#
+# SPDX-License-Identifier: Apache-2.0
+include_guard(GLOBAL)
+include("${CMAKE_CURRENT_LIST_DIR}/internal.cmake")
+
+function(_besa_surrogate_generate_source HEADER INCLUDE_ROOT DESTINATION OUTPUT_VARIABLE)
+  file(RELATIVE_PATH _relative "${INCLUDE_ROOT}" "${HEADER}")
+  get_filename_component(_extension "${HEADER}" LAST_EXT)
+  if(_extension STREQUAL ".h")
+    set(_source_extension .c)
+  elseif(_extension MATCHES "^\\.(hpp|hh|hxx)$")
+    set(_source_extension .cpp)
+  elseif(_extension MATCHES "^\\.(cuh|cuhpp)$")
+    set(_source_extension .cu)
+  else()
+    set("${OUTPUT_VARIABLE}" "" PARENT_SCOPE)
+    return()
+  endif()
+  string(REGEX REPLACE "\\.[^.]+$" "${_source_extension}" _source_relative "${_relative}")
+  set(_source "${DESTINATION}/${_source_relative}")
+  get_filename_component(_dir "${_source}" DIRECTORY)
+  file(MAKE_DIRECTORY "${_dir}")
+  file(WRITE "${_source}" "#include <${_relative}>\n")
+  set("${OUTPUT_VARIABLE}" "${_source}" PARENT_SCOPE)
+endfunction()
+
+function(_besa_surrogate_collect_includes TARGET_NAME OUTPUT_VARIABLE)
+  set(_directories)
+  foreach(_property INCLUDE_DIRECTORIES INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(_values "${TARGET_NAME}" "${_property}")
+    if(NOT _values OR _values STREQUAL "_values-NOTFOUND")
+      continue()
+    endif()
+    foreach(_value IN LISTS _values)
+      if(_value MATCHES "^\\$<BUILD_INTERFACE:(.*)>$")
+        set(_value "${CMAKE_MATCH_1}")
+      elseif(_value MATCHES "^\\$<")
+        continue()
+      endif()
+      if(NOT IS_ABSOLUTE "${_value}")
+        file(REAL_PATH "${_value}" _value BASE_DIRECTORY "${PROJECT_SOURCE_DIR}")
+      endif()
+      if(IS_DIRECTORY "${_value}")
+        list(APPEND _directories "${_value}")
+      endif()
+    endforeach()
+  endforeach()
+  list(REMOVE_DUPLICATES _directories)
+  set("${OUTPUT_VARIABLE}" "${_directories}" PARENT_SCOPE)
+endfunction()
+
+function(_besa_surrogate_check_impl TARGET_NAME LABELS EXPECT)
+  if(NOT TARGET "${TARGET_NAME}")
+    _besa_fatal("besa_surrogate_check" "target '${TARGET_NAME}' no longer exists")
+  endif()
+
+  _besa_surrogate_collect_includes("${TARGET_NAME}" _includes)
+  if(NOT _includes)
+    return()
+  endif()
+
+  set(_surrogate_target "surrogate.${TARGET_NAME}.t")
+  if(TARGET "${_surrogate_target}")
+    return()
+  endif()
+
+  add_library("${_surrogate_target}" EXCLUDE_FROM_ALL)
+  target_link_libraries("${_surrogate_target}" PRIVATE "${TARGET_NAME}")
+  set(_destination "${PROJECT_BINARY_DIR}/surrogate/${TARGET_NAME}")
+
+  foreach(_include IN LISTS _includes)
+    file(GLOB_RECURSE _headers LIST_DIRECTORIES FALSE CONFIGURE_DEPENDS "${_include}/*")
+    foreach(_header IN LISTS _headers)
+      _besa_surrogate_generate_source("${_header}" "${_include}" "${_destination}" _source)
+      if(_source)
+        target_sources("${_surrogate_target}" PRIVATE "${_source}")
+      endif()
+    endforeach()
+  endforeach()
+
+  add_test(
+    NAME "${_surrogate_target}"
+    COMMAND "${CMAKE_COMMAND}" --build "${PROJECT_BINARY_DIR}"
+      --target "${_surrogate_target}" --config $<CONFIG> --verbose
+  )
+  set_tests_properties("${_surrogate_target}" PROPERTIES LABELS "${LABELS}")
+  if(EXPECT STREQUAL "FAIL")
+    set_tests_properties("${_surrogate_target}" PROPERTIES WILL_FAIL TRUE)
+  endif()
+endfunction()
+
+# Verify that every public header can be compiled in isolation.  The implementation is deferred so
+# callers may continue adding include directories/file sets after registering the check.
+function(besa_surrogate_check)
+  _besa_require_config_complete("besa_surrogate_check")
+  cmake_parse_arguments(ARG "" "TARGET;EXPECT" "LABELS" ${ARGN})
+  _besa_require_no_unparsed("besa_surrogate_check" "${ARG_UNPARSED_ARGUMENTS}")
+  _besa_require_value("besa_surrogate_check" "TARGET" "${ARG_TARGET}")
+  if(NOT ARG_EXPECT)
+    set(ARG_EXPECT PASS)
+  endif()
+  if(NOT ARG_EXPECT STREQUAL "PASS" AND NOT ARG_EXPECT STREQUAL "FAIL")
+    _besa_fatal("besa_surrogate_check" "EXPECT must be PASS or FAIL")
+  endif()
+  if(NOT ARG_LABELS)
+    set(ARG_LABELS instrumentation surrogate)
+  endif()
+  cmake_language(EVAL CODE
+    "cmake_language(DEFER DIRECTORY [[${PROJECT_SOURCE_DIR}]] CALL _besa_surrogate_check_impl [[${ARG_TARGET}]] [[${ARG_LABELS}]] [[${ARG_EXPECT}]])"
+  )
+endfunction()

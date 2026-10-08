@@ -1,0 +1,107 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gcc:
+    name: GCC ${{ matrix.version }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["16", "15"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install GCC
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes software-properties-common
+          sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install --yes g++-${{ matrix.version }}
+      - name: Show compiler version
+        run: g++-${{ matrix.version }} --version
+      - name: Configure
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CXX_COMPILER=g++-${{ matrix.version }}
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  clang:
+    name: Clang ${{ matrix.version }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["23", "22"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Clang
+        run: |
+          wget -q https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+      - name: Show compiler version
+        run: clang++-${{ matrix.version }} --version
+      - name: Configure
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CXX_COMPILER=clang++-${{ matrix.version }}
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  nvhpc:
+    name: NVHPC ${{ matrix.version }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: "26.9"
+            package: "26-9"
+          - version: "26.5"
+            package: "26-5"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Add NVIDIA HPC SDK repository
+        run: |
+          curl -fsSL https://developer.download.nvidia.com/hpc-sdk/ubuntu/DEB-GPG-KEY-NVIDIA-HPC-SDK \
+            | sudo gpg --dearmor --yes -o /usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg
+          echo 'deb [signed-by=/usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg] https://developer.download.nvidia.com/hpc-sdk/ubuntu/amd64 /' \
+            | sudo tee /etc/apt/sources.list.d/nvhpc.list
+          sudo apt-get update
+      - name: Install NVHPC
+        run: sudo apt-get install --yes nvhpc-${{ matrix.package }}
+      - name: Show compiler version
+        run: /opt/nvidia/hpc_sdk/Linux_x86_64/${{ matrix.version }}/compilers/bin/nvc++ --version
+      - name: Configure
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CXX_COMPILER=/opt/nvidia/hpc_sdk/Linux_x86_64/${{ matrix.version }}/compilers/bin/nvc++
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  reuse:
+    name: REUSE
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v9.0.0
+      - name: Lint licensing metadata
+        run: uvx reuse lint

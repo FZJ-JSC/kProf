@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 kprof developers
+#
+# SPDX-License-Identifier: Apache-2.0
+
+site_name: kprof
+docs_dir: web/content
+site_dir: web/site
+theme:
+  name: materialx
+#  custom_dir: web/override
+plugins:
+  - search
+  - cpdocs:
+      config: api/cpdocs.yml
+      mount: reference/api
+
+
+site_url: https://jbadwaik.github.io/kprof/
+site_author: Prateek Chawla
+site_description: profiler
+docs_dir: web/content
+site_dir: web/site
+
+repo_name: jbadwaik/kprof
+repo_url: https://github.com/jbadwaik/kprof
+edit_uri: edit/main/docs/web/
+
+copyright: Copyright © kprof developers · Apache-2.0
+
+theme:
+  name: materialx
+  features:
+    - content.code.copy
+    - navigation.instant
+    - navigation.indexes
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - toc.follow
+
+markdown_extensions:
+  - tables
+
+
+nav:
+  - Home: index.md
+  - Tutorial: tutorial.md
+  - How-to: how-to.md
+  - Reference: reference.md
+  - Explanation: explanation.md

@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 kprof developers
+#
+# SPDX-License-Identifier: Apache-2.0
+
+contract: 3
+build:
+  feature-sets: >-
+    cmake -S ../.. -B "{{tmpdir}}"
+    -DBESA_CPDOCS_FEATURE_SETS_OUTPUT="{{output-file}}"
+  build: >-
+    cmake -S ../.. -B "{{tmpdir}}"
+    -DBESA_CPDOCS_FEATURE_SET="{{feature-set}}"
+    -DBESA_CPDOCS_MANIFEST_OUTPUT="{{output-file}}"
+    && cmake --build "{{tmpdir}}" --target besa.cpdocs

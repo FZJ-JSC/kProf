@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 kprof developers
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+name = "kprof-docs"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["cpdocs", "properdocs", "mkdocs-materialx"]

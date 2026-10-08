@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 kprof developers
+#
+# SPDX-License-Identifier: Apache-2.0
+
+spack:
+  specs:
+    - kprof-dev+test
+  repos:
+    - ./share/spack
+  concretizer:
+    unify: true
