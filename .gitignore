@@ -2,3 +2,7 @@ uv.lock
 docs/build/
 docs/web/site
 build/*
+.clangd
+.cache/*
+.vscode/*
+CMakeUserPresets.json
