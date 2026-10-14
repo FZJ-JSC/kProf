@@ -1,15 +1,29 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# Declare and resolve project-specific test workflows.
+#
+# Projects declare mode names/defaults before besa_finalize_options(). TEST_MODE
+# chooses a single declared mode, and TEST_MODES supports explicit overrides.
+# Constraint callbacks validate the resolved mode set. Test discovery queries
+# the resolved modes; no separate selectors need to be injected into fixtures.
+
 include_guard(GLOBAL)
 include("${CMAKE_CURRENT_LIST_DIR}/internal.cmake")
 
 # Test modes are project-defined names describing test workflows such as `ci-commit`, `ci-merge`, or
 # a site-specific validation mode.  BESA deliberately assigns no special semantics to any mode name.
-# Projects declare the available/default modes before besa_configure_complete(); TEST_MODES then acts
+# Projects declare the available/default modes before besa_finalize_options(); TEST_MODES then acts
 # as the same kind of explicit override set as PROJECT_FEATURES, including `~mode` to disable a
 # default.  The same underlying mode may appear at most once in TEST_MODES.
+
+# --------------------------------------------------------------------------------------------------
+# Public API
+# --------------------------------------------------------------------------------------------------
+
+# Declare available project-owned test mode names before finalization.
+#   besa_test_modes_add(MODES <name>...)
 function(besa_test_modes_add)
   _besa_require_config_open("besa_test_modes_add")
   cmake_parse_arguments(ARG "" "" "MODES" ${ARGN})
@@ -26,6 +40,8 @@ function(besa_test_modes_add)
   endforeach()
 endfunction()
 
+# Set default enabled test modes from previously declared names.
+#   besa_test_modes_default(MODES <name>...)
 function(besa_test_modes_default)
   _besa_require_config_open("besa_test_modes_default")
   cmake_parse_arguments(ARG "" "" "MODES" ${ARGN})
@@ -43,14 +59,8 @@ function(besa_test_modes_default)
   endforeach()
 endfunction()
 
-# Parse the named callback contract used by project-defined test-mode constraints.
-#
-# A callback should begin with:
-#
-#   besa_test_mode_constraint_arguments_parse(PREFIX ARG ARGUMENTS ${ARGN})
-#
-# It reads ARG_MODES and writes TRUE/FALSE to ${ARG_OUTPUT_VARIABLE} and an optional human-readable
-# diagnostic to ${ARG_ERROR_VARIABLE}, both in PARENT_SCOPE.
+# Unpack named callback inputs into <prefix>_MODES and output-variable names.
+#   besa_test_mode_constraint_arguments_parse(PREFIX <prefix> ARGUMENTS ${ARGN})
 function(besa_test_mode_constraint_arguments_parse)
   cmake_parse_arguments(ARG "" "PREFIX" "ARGUMENTS" ${ARGN})
   _besa_require_no_unparsed(
@@ -72,6 +82,8 @@ function(besa_test_mode_constraint_arguments_parse)
   set("${ARG_PREFIX}_MODES" "${PARSED_MODES}" PARENT_SCOPE)
 endfunction()
 
+# Register a callback evaluated on the resolved test-mode set.
+#   besa_register_test_mode_constraint(FUNCTION <callback>)
 function(besa_register_test_mode_constraint)
   _besa_require_config_open("besa_register_test_mode_constraint")
   cmake_parse_arguments(ARG "" "FUNCTION" "" ${ARGN})
@@ -88,6 +100,49 @@ function(besa_register_test_mode_constraint)
   )
 endfunction()
 
+# Check the selected modes after option finalization.
+#   besa_test_modes_check(OUTPUT_VARIABLE <variable> [MODES <mode>...])
+function(besa_test_modes_check)
+  _besa_require_config_complete("besa_test_modes_check")
+  cmake_parse_arguments(ARG "" "OUTPUT_VARIABLE" "MODES" ${ARGN})
+  _besa_require_no_unparsed("besa_test_modes_check" "${ARG_UNPARSED_ARGUMENTS}")
+  _besa_require_value("besa_test_modes_check" "OUTPUT_VARIABLE" "${ARG_OUTPUT_VARIABLE}")
+
+  if(NOT ARG_MODES)
+    set("${ARG_OUTPUT_VARIABLE}" TRUE PARENT_SCOPE)
+    return()
+  endif()
+
+  get_property(_declared GLOBAL PROPERTY BESA_DECLARED_TEST_MODES)
+  get_property(_enabled GLOBAL PROPERTY BESA_ENABLED_TEST_MODES)
+  set(_seen)
+  set(_selected FALSE)
+  foreach(_mode IN LISTS ARG_MODES)
+    if("${_mode}" MATCHES "^~")
+      _besa_fatal(
+        "besa_test_modes_check"
+        "supported test mode '${_mode}' must not use '~'; negation is only for TEST_MODES overrides"
+      )
+    endif()
+    if("${_mode}" IN_LIST _seen)
+      _besa_fatal("besa_test_modes_check" "test mode '${_mode}' appears more than once")
+    endif()
+    list(APPEND _seen "${_mode}")
+    if(NOT "${_mode}" IN_LIST _declared)
+      _besa_fatal("besa_test_modes_check" "unknown test mode '${_mode}'")
+    endif()
+    if("${_mode}" IN_LIST _enabled)
+      set(_selected TRUE)
+    endif()
+  endforeach()
+
+  set("${ARG_OUTPUT_VARIABLE}" "${_selected}" PARENT_SCOPE)
+endfunction()
+
+# --------------------------------------------------------------------------------------------------
+# Internal implementation
+# --------------------------------------------------------------------------------------------------
+
 function(_besa_resolve_test_modes OUTPUT_VARIABLE)
   get_property(_declared GLOBAL PROPERTY BESA_DECLARED_TEST_MODES)
   get_property(_defaults GLOBAL PROPERTY BESA_DEFAULT_TEST_MODES)
@@ -97,6 +152,15 @@ function(_besa_resolve_test_modes OUTPUT_VARIABLE)
   endif()
 
   set(_enabled ${_defaults})
+  if(DEFINED TEST_MODE)
+    if("${TEST_MODE}" STREQUAL "none")
+      set(_enabled)
+    elseif("${TEST_MODE}" IN_LIST _declared)
+      set(_enabled "${TEST_MODE}")
+    else()
+      _besa_fatal("besa_finalize_options" "unknown TEST_MODE '${TEST_MODE}'; declared modes: ${_declared}")
+    endif()
+  endif()
   set(_seen)
   foreach(_entry IN LISTS TEST_MODES)
     if("${_entry}" STREQUAL "")
@@ -106,7 +170,7 @@ function(_besa_resolve_test_modes OUTPUT_VARIABLE)
     _besa_feature_base_name("${_entry}" _mode _negated)
     if("${_mode}" IN_LIST _seen)
       _besa_fatal(
-        "besa_configure_complete"
+        "besa_finalize_options"
         "test mode '${_mode}' is specified more than once in TEST_MODES"
       )
     endif()
@@ -114,7 +178,7 @@ function(_besa_resolve_test_modes OUTPUT_VARIABLE)
 
     if(NOT "${_mode}" IN_LIST _declared)
       _besa_fatal(
-        "besa_configure_complete"
+        "besa_finalize_options"
         "unknown test mode '${_mode}'. Declared test modes are: ${_declared}"
       )
     endif()
@@ -129,6 +193,7 @@ function(_besa_resolve_test_modes OUTPUT_VARIABLE)
   set("${OUTPUT_VARIABLE}" "${_enabled}" PARENT_SCOPE)
 endfunction()
 
+# Invoke registered constraints on the resolved test-mode set.
 function(_besa_run_test_mode_constraints ENABLED_MODES)
   get_property(_constraints GLOBAL PROPERTY BESA_TEST_MODE_CONSTRAINTS)
   foreach(_constraint IN LISTS _constraints)
@@ -167,44 +232,4 @@ function(_besa_publish_test_modes ENABLED_MODES)
     endif()
     set("PROJECT_TEST_MODE_${_normalized}" "${_value}" CACHE INTERNAL "Resolved BESA test mode")
   endforeach()
-endfunction()
-
-# Check whether a test/test-directory which supports MODES participates in the resolved test-mode
-# configuration.  MODES uses ANY-OF semantics: one enabled supported mode is enough.  Omitting MODES
-# means that the test supports every test mode, which is useful for universally applicable checks.
-function(besa_test_modes_check)
-  _besa_require_config_complete("besa_test_modes_check")
-  cmake_parse_arguments(ARG "" "OUTPUT_VARIABLE" "MODES" ${ARGN})
-  _besa_require_no_unparsed("besa_test_modes_check" "${ARG_UNPARSED_ARGUMENTS}")
-  _besa_require_value("besa_test_modes_check" "OUTPUT_VARIABLE" "${ARG_OUTPUT_VARIABLE}")
-
-  if(NOT ARG_MODES)
-    set("${ARG_OUTPUT_VARIABLE}" TRUE PARENT_SCOPE)
-    return()
-  endif()
-
-  get_property(_declared GLOBAL PROPERTY BESA_DECLARED_TEST_MODES)
-  get_property(_enabled GLOBAL PROPERTY BESA_ENABLED_TEST_MODES)
-  set(_seen)
-  set(_selected FALSE)
-  foreach(_mode IN LISTS ARG_MODES)
-    if("${_mode}" MATCHES "^~")
-      _besa_fatal(
-        "besa_test_modes_check"
-        "supported test mode '${_mode}' must not use '~'; negation is only for TEST_MODES overrides"
-      )
-    endif()
-    if("${_mode}" IN_LIST _seen)
-      _besa_fatal("besa_test_modes_check" "test mode '${_mode}' appears more than once")
-    endif()
-    list(APPEND _seen "${_mode}")
-    if(NOT "${_mode}" IN_LIST _declared)
-      _besa_fatal("besa_test_modes_check" "unknown test mode '${_mode}'")
-    endif()
-    if("${_mode}" IN_LIST _enabled)
-      set(_selected TRUE)
-    endif()
-  endforeach()
-
-  set("${ARG_OUTPUT_VARIABLE}" "${_selected}" PARENT_SCOPE)
 endfunction()

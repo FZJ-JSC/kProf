@@ -4,8 +4,8 @@
 
 spack:
   specs:
-    - kprof-dev+test
+  - kprof-dev+test
   repos:
-    - ./share/spack
+  - ./share/spack
   concretizer:
     unify: true

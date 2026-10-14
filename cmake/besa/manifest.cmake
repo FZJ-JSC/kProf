@@ -1,9 +1,47 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# Record BESA semantic units and public option metadata.
+#
+# The generated JSON manifest describes discovered source units, their types,
+# feature constraints and registered CMake cache options. Other BESA facilities
+# and the cpdocs provider consume this shared description. Internal global
+# properties accumulate records until project finalization writes the manifest.
+
 include_guard(GLOBAL)
 include("${CMAKE_CURRENT_LIST_DIR}/internal.cmake")
+
+# --------------------------------------------------------------------------------------------------
+# Public API
+# --------------------------------------------------------------------------------------------------
+
+# Register existing project cache variables for manifest/report metadata.
+#   besa_register_options(GROUP <group> VARIABLES <variable>...)
+function(besa_register_options)
+  _besa_require_config_open("besa_register_options")
+  cmake_parse_arguments(ARG "" "GROUP" "VARIABLES" ${ARGN})
+  _besa_require_no_unparsed("besa_register_options" "${ARG_UNPARSED_ARGUMENTS}")
+  if(NOT ARG_GROUP OR NOT ARG_VARIABLES)
+    _besa_fatal("besa_register_options" "GROUP and VARIABLES are required")
+  endif()
+  foreach(_variable IN LISTS ARG_VARIABLES)
+    get_property(_is_cache CACHE "${_variable}" PROPERTY TYPE SET)
+    if(NOT _is_cache)
+      _besa_fatal("besa_register_options" "'${_variable}' is not a CMake cache variable")
+    endif()
+    get_property(_existing GLOBAL PROPERTY "BESA_OPTION_GROUP_${_variable}")
+    if(_existing)
+      _besa_fatal("besa_register_options" "'${_variable}' already registered")
+    endif()
+    set_property(GLOBAL PROPERTY "BESA_OPTION_GROUP_${_variable}" "${ARG_GROUP}")
+    set_property(GLOBAL APPEND PROPERTY BESA_REGISTERED_OPTIONS "${_variable}")
+  endforeach()
+endfunction()
+
+# --------------------------------------------------------------------------------------------------
+# Internal implementation
+# --------------------------------------------------------------------------------------------------
 
 function(_besa_json_escape INPUT OUTPUT_VARIABLE)
   set(_value "${INPUT}")
@@ -21,16 +59,14 @@ function(_besa_json_string INPUT OUTPUT_VARIABLE)
 endfunction()
 
 function(_besa_json_array OUTPUT_VARIABLE)
-  set(_items)
+  set(_body "")
   foreach(_value IN LISTS ARGN)
     _besa_json_string("${_value}" _quoted)
-    list(APPEND _items "${_quoted}")
+    if(NOT "${_body}" STREQUAL "")
+      string(APPEND _body ", ")
+    endif()
+    string(APPEND _body "${_quoted}")
   endforeach()
-  if(_items)
-    string(JOIN ", " _body ${_items})
-  else()
-    set(_body "")
-  endif()
   set("${OUTPUT_VARIABLE}" "[${_body}]" PARENT_SCOPE)
 endfunction()
 
@@ -85,9 +121,12 @@ endfunction()
 function(_besa_manifest_standard TYPE OUTPUT_VARIABLE)
   if(TYPE STREQUAL "c" AND DEFINED CMAKE_C_STANDARD AND NOT "${CMAKE_C_STANDARD}" STREQUAL "")
     set(_standard "c${CMAKE_C_STANDARD}")
-  elseif((TYPE STREQUAL "cpp" OR TYPE STREQUAL "cuda" OR TYPE STREQUAL "hip")
-      AND DEFINED CMAKE_CXX_STANDARD AND NOT "${CMAKE_CXX_STANDARD}" STREQUAL "")
+  elseif(TYPE STREQUAL "cpp" AND DEFINED CMAKE_CXX_STANDARD AND NOT "${CMAKE_CXX_STANDARD}" STREQUAL "")
     set(_standard "c++${CMAKE_CXX_STANDARD}")
+  elseif(TYPE STREQUAL "cuda" AND DEFINED CMAKE_CUDA_STANDARD AND NOT "${CMAKE_CUDA_STANDARD}" STREQUAL "")
+    set(_standard "cuda${CMAKE_CUDA_STANDARD}")
+  elseif(TYPE STREQUAL "hip" AND DEFINED CMAKE_HIP_STANDARD AND NOT "${CMAKE_HIP_STANDARD}" STREQUAL "")
+    set(_standard "hip${CMAKE_HIP_STANDARD}")
   else()
     set(_standard "")
   endif()
@@ -117,7 +156,7 @@ function(_besa_manifest_unit_json INDEX OUTPUT_VARIABLE)
   set(_modules)
   set(_executables)
   if(_TYPE STREQUAL "bin")
-    file(GLOB _bin_sources LIST_DIRECTORIES FALSE "${_ROOT}/*.c" "${_ROOT}/*.cc" "${_ROOT}/*.cpp" "${_ROOT}/*.cxx")
+    file(GLOB _bin_sources LIST_DIRECTORIES FALSE CONFIGURE_DEPENDS "${_ROOT}/*")
     list(APPEND _sources ${_bin_sources})
     list(APPEND _executables ${_bin_sources})
   else()
@@ -129,6 +168,8 @@ function(_besa_manifest_unit_json INDEX OUTPUT_VARIABLE)
     endif()
     if(_TYPE STREQUAL "fortran" AND (IS_DIRECTORY "${_ROOT}/mod" OR _GENERATED))
       list(APPEND _modules "${_ROOT}/mod")
+    elseif(_TYPE STREQUAL "cpp" AND IS_DIRECTORY "${_ROOT}/module")
+      list(APPEND _modules "${_ROOT}/module")
     endif()
   endif()
   _besa_json_array(_headers_json ${_headers})
@@ -211,10 +252,53 @@ function(_besa_manifest_units_json OUTPUT_VARIABLE)
   set("${OUTPUT_VARIABLE}" "${_json}" PARENT_SCOPE)
 endfunction()
 
+function(_besa_manifest_options_json OUTPUT_VARIABLE)
+  get_property(_registered GLOBAL PROPERTY BESA_REGISTERED_OPTIONS)
+  set(_result "")
+  foreach(_name IN LISTS _registered)
+    get_property(_group GLOBAL PROPERTY "BESA_OPTION_GROUP_${_name}")
+    get_property(_type CACHE "${_name}" PROPERTY TYPE)
+    get_property(_help CACHE "${_name}" PROPERTY HELPSTRING)
+    get_property(_allowed CACHE "${_name}" PROPERTY STRINGS)
+    get_property(_value CACHE "${_name}" PROPERTY VALUE)
+    _besa_json_string("${_name}" _name_json)
+    _besa_json_string("${_group}" _group_json)
+    _besa_json_string("${_type}" _type_json)
+    _besa_json_string("${_help}" _help_json)
+    _besa_json_string("${_value}" _value_json)
+    _besa_json_array(_allowed_json ${_allowed})
+    if(NOT "${_result}" STREQUAL "")
+      string(APPEND _result ",\n    ")
+    endif()
+    string(APPEND _result "{\"name\":${_name_json},\"group\":${_group_json},\"type\":${_type_json},\"value\":${_value_json},\"description\":${_help_json},\"allowed\":${_allowed_json}}")
+  endforeach()
+  set("${OUTPUT_VARIABLE}" "[\n    ${_result}\n  ]" PARENT_SCOPE)
+endfunction()
+
+function(_besa_manifest_feature_constraints_json OUTPUT_VARIABLE)
+  get_property(_var GLOBAL PROPERTY BESA_FEATURE_VARIABLE)
+  get_property(_declared GLOBAL PROPERTY BESA_DECLARED_FEATURES)
+  get_property(_space GLOBAL PROPERTY BESA_PROJECT_FEATURE_SPACE)
+  get_property(_conflicts GLOBAL PROPERTY BESA_FEATURE_CONFLICTS)
+  _besa_json_string("${_var}" _var_json)
+  _besa_json_string("${_space}" _space_json)
+  _besa_json_array(_declared_json ${_declared})
+  set(_pairs)
+  foreach(_record IN LISTS _conflicts)
+    string(REPLACE "|" ";" _pair "${_record}")
+    _besa_json_array(_pair_json ${_pair})
+    list(APPEND _pairs "${_pair_json}")
+  endforeach()
+  string(JOIN "," _pairs_json ${_pairs})
+  set("${OUTPUT_VARIABLE}" "{\"variable\":${_var_json},\"available\":${_declared_json},\"explicit_space\":${_space_json},\"conflicts\":[${_pairs_json}]}" PARENT_SCOPE)
+endfunction()
+
 function(_besa_manifest_write OUTPUT_FILE)
   get_property(_enabled GLOBAL PROPERTY BESA_ENABLED_FEATURES)
   _besa_json_array(_features_json ${_enabled})
   _besa_json_string("${PROJECT_NAME}" _project_json)
+  _besa_manifest_options_json(_options_json)
+  _besa_manifest_feature_constraints_json(_feature_info_json)
   _besa_manifest_units_json(_units_json)
   get_filename_component(_directory "${OUTPUT_FILE}" DIRECTORY)
   file(MAKE_DIRECTORY "${_directory}")
@@ -223,6 +307,8 @@ function(_besa_manifest_write OUTPUT_FILE)
     "  \"besa-manifest\": 1,\n"
     "  \"project\": ${_project_json},\n"
     "  \"features\": ${_features_json},\n"
+    "  \"feature_configuration\": ${_feature_info_json},\n"
+    "  \"options\": ${_options_json},\n"
     "  \"units\": [\n    ${_units_json}\n  ]\n"
     "}\n"
   )

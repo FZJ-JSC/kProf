@@ -1,7 +1,10 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# LeakSanitizer instrumentation policy.
+# Defines the besa::lsan usage-requirement target, loaded on demand by devtools.cmake.
+
 include_guard(GLOBAL)
 add_library(besa.lsan INTERFACE)
 add_library(besa::lsan ALIAS besa.lsan)

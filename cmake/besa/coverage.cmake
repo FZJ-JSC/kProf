@@ -1,7 +1,14 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# Compiler coverage instrumentation and grouped report production.
+#
+# The besa::coverage interface target instruments compiled targets. CTest runs
+# produce profile data, and project-finalization targets collect reports by
+# registered coverage group. Clang uses llvm-profdata/llvm-cov and GNU uses
+# gcovr. This module is loaded only when coverage is an enabled devtool.
+
 include_guard(GLOBAL)
 include("${CMAKE_CURRENT_LIST_DIR}/internal.cmake")
 
@@ -35,6 +42,10 @@ elseif(
 else()
   message(FATAL_ERROR "BESA coverage currently supports GNU and Clang C/C++ compilers")
 endif()
+
+# --------------------------------------------------------------------------------------------------
+# Internal implementation
+# --------------------------------------------------------------------------------------------------
 
 function(_besa_coverage_register_test GROUP_NAME TEST_NAME TARGET_NAME)
   if("${GROUP_NAME}" STREQUAL "")

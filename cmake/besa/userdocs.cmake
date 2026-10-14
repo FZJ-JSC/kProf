@@ -1,12 +1,25 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# Expose documentation build targets for project authors.
+#
+# BESA delegates C/C++ API reference generation to cpdocs and project-level
+# narrative documentation to ProperDocs. Current and versioned outputs live
+# under BESA_DOCS_DIRECTORY to keep revisions separate from normal build files.
+# Both public functions create targets; installing documentation is optional.
 
 include_guard(GLOBAL)
 include("${CMAKE_CURRENT_LIST_DIR}/internal.cmake")
 
 # Register explicit cpdocs targets for API-only development and CI.
+
+# --------------------------------------------------------------------------------------------------
+# Public API
+# --------------------------------------------------------------------------------------------------
+
+# Declare current and versioned cpdocs API documentation targets.
+# Requires finalized options and a valid provider config path.
 function(besa_add_cpdocs_docs)
   _besa_require_config_complete("besa_add_cpdocs_docs")
   include(GNUInstallDirs)
@@ -85,9 +98,8 @@ function(besa_add_cpdocs_docs)
   endif()
 endfunction()
 
-# Register the complete user-documentation site. ProperDocs invokes cpdocs ProperDocs, so there is no
-# second site build and no assembly phase. NAME is the deployable site target; NAME.api and
-# NAME.api.versions remain convenient explicit cpdocs targets.
+# Declare project narrative documentation targets using ProperDocs.
+# Uses BESA_DOCS_DIRECTORY for generated documentation outputs.
 function(besa_add_user_docs)
   _besa_require_config_complete("besa_add_user_docs")
   include(GNUInstallDirs)

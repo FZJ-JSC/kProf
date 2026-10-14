@@ -9,93 +9,136 @@ permissions:
   contents: read
 
 jobs:
-  gcc:
-    name: GCC ${{ matrix.version }}
+  build:
+    name: ${{ matrix.compiler }} ${{ matrix.version }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    # OCI cache indices are updated by each push. Serialize writers for the
+    # same matrix entry while allowing independent compiler jobs and PR reads.
+    concurrency:
+      group: ghcr-spack-${{ github.repository }}-${{ matrix.compiler }}-${{ matrix.version }}-${{ github.event_name == 'pull_request' && github.run_id || 'writers' }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
-        version: ["16", "15"]
+        include:
+          - compiler: GCC
+            version: "16"
+            cxx: g++-16
+          - compiler: GCC
+            version: "15"
+            cxx: g++-15
+          - compiler: Clang
+            version: "23"
+            cxx: clang++-23
+          - compiler: Clang
+            version: "22"
+            cxx: clang++-22
+          - compiler: NVHPC
+            version: "26.9"
+            package: "26-9"
+            cxx: /opt/nvidia/hpc_sdk/Linux_x86_64/26.9/compilers/bin/nvc++
+          - compiler: NVHPC
+            version: "26.5"
+            package: "26-5"
+            cxx: /opt/nvidia/hpc_sdk/Linux_x86_64/26.5/compilers/bin/nvc++
     steps:
       - uses: actions/checkout@v6
-      - name: Install GCC
+      - name: Install GCC from Ubuntu Toolchain PPA
+        if: ${{ matrix.compiler == 'GCC' }}
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install --yes software-properties-common
           sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
           sudo apt-get update
           sudo apt-get install --yes g++-${{ matrix.version }}
-      - name: Show compiler version
-        run: g++-${{ matrix.version }} --version
-      - name: Configure
-        run: >-
-          cmake -S . -B build
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_CXX_COMPILER=g++-${{ matrix.version }}
-      - name: Build
-        run: cmake --build build --parallel
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
-
-  clang:
-    name: Clang ${{ matrix.version }}
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        version: ["23", "22"]
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install Clang
+      - name: Install Clang from LLVM APT repository
+        if: ${{ matrix.compiler == 'Clang' }}
+        shell: bash
         run: |
+          set -euo pipefail
           wget -q https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
-      - name: Show compiler version
-        run: clang++-${{ matrix.version }} --version
-      - name: Configure
-        run: >-
-          cmake -S . -B build
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_CXX_COMPILER=clang++-${{ matrix.version }}
-      - name: Build
-        run: cmake --build build --parallel
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
-
-  nvhpc:
-    name: NVHPC ${{ matrix.version }}
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - version: "26.9"
-            package: "26-9"
-          - version: "26.5"
-            package: "26-5"
-    steps:
-      - uses: actions/checkout@v6
-      - name: Add NVIDIA HPC SDK repository
+      - name: Install NVIDIA HPC SDK
+        if: ${{ matrix.compiler == 'NVHPC' }}
+        shell: bash
         run: |
+          set -euo pipefail
           curl -fsSL https://developer.download.nvidia.com/hpc-sdk/ubuntu/DEB-GPG-KEY-NVIDIA-HPC-SDK \
             | sudo gpg --dearmor --yes -o /usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg
           echo 'deb [signed-by=/usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg] https://developer.download.nvidia.com/hpc-sdk/ubuntu/amd64 /' \
             | sudo tee /etc/apt/sources.list.d/nvhpc.list
           sudo apt-get update
-      - name: Install NVHPC
-        run: sudo apt-get install --yes nvhpc-${{ matrix.package }}
+          sudo apt-get install --yes nvhpc-${{ matrix.package }}
       - name: Show compiler version
-        run: /opt/nvidia/hpc_sdk/Linux_x86_64/${{ matrix.version }}/compilers/bin/nvc++ --version
-      - name: Configure
-        run: >-
-          cmake -S . -B build
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_CXX_COMPILER=/opt/nvidia/hpc_sdk/Linux_x86_64/${{ matrix.version }}/compilers/bin/nvc++
-      - name: Build
-        run: cmake --build build --parallel
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
+        env:
+          CXX: ${{ matrix.cxx }}
+        run: "$CXX --version"
+      - name: Set up Spack
+        uses: spack/setup-spack@v3
+        with:
+          buildcache: true
+      - name: Configure GitHub OCI buildcache
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Use a stable, padded prefix so cached binaries remain relocatable.
+          sudo install -d -o "$(id -u)" -g "$(id -g)" /opt/spack
+          spack config add 'config:install_tree:root:/opt/spack'
+          spack config add 'config:install_tree:padded_length:128'
+
+          # One OCI image per matrix entry avoids simultaneous index updates.
+          repository="${GITHUB_REPOSITORY#*/}"
+          image="${repository,,}-spack-${COMPILER,,}-${VERSION}"
+          mirror="oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${image}"
+          spack mirror add --scope spack --type binary --unsigned \
+            --oci-username-variable GITHUB_ACTOR \
+            --oci-password-variable GHCR_TOKEN \
+            ghcr-buildcache "$mirror"
+          spack mirror list
+        env:
+          COMPILER: ${{ matrix.compiler }}
+          VERSION: ${{ matrix.version }}
+      - name: Configure Spack to use the runner's GCC
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Spack installs only development dependencies. The compiler used
+          # for those dependencies is the system GCC, not a Spack-built
+          # compiler or the compiler selected for the kprof test matrix.
+          spack compiler find /usr/bin
+          system_gcc_major="$(/usr/bin/gcc -dumpversion | cut -d. -f1)"
+          spack config add "packages:c:require::[gcc@${system_gcc_major}]"
+          spack config add "packages:cxx:require::[gcc@${system_gcc_major}]"
+          spack compiler list
+      - name: Install development dependencies with Spack (reuse GHCR cache)
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: spack -e dev install
+      - name: Publish development dependencies to GHCR
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: spack -e dev buildcache push --allow-missing --update-index ghcr-buildcache
+      - name: Configure, build and test
+        shell: spack-bash {0}
+        env:
+          CXX: ${{ matrix.cxx }}
+        run: |
+          set -euo pipefail
+          # The matrix compiler is installed outside Spack; activating the
+          # environment only makes Spack's CMake, Ninja and Catch2 available.
+          spack env activate dev
+          "$CXX" --version
+          cmake --version
+          cmake --preset ci
+          cmake --build --preset ci --parallel
+          ctest --preset ci
 
   reuse:
     name: REUSE

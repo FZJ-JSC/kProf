@@ -6,3 +6,6 @@ build/*
 .cache/*
 .vscode/*
 CMakeUserPresets.json
+__pycache__
+.spack-env
+spack.lock
