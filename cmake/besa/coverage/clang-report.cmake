@@ -1,7 +1,9 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# Convert Clang raw profiling data to per-group coverage reports.
+
 foreach(_required PROFDATA LLVM_COV PROFILE_DIR OUTPUT_DIR TARGET_FILES)
   if(NOT DEFINED ${_required})
     message(FATAL_ERROR "clang coverage report requires ${_required}")

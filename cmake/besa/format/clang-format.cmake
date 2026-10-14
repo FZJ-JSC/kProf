@@ -1,7 +1,9 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# Run the clang-format CTest driver for the configured source paths.
+
 if(NOT DEFINED CLANG_FORMAT OR NOT DEFINED SOURCE_DIR)
   message(FATAL_ERROR "clang-format check requires CLANG_FORMAT and SOURCE_DIR")
 endif()

@@ -1,12 +1,22 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# Register clang-format checks for source files as CTest tests.
+# The format capability is enabled through BUILD_DEVTOOLS; this module supplies
+# its test-registration implementation.
+
 include_guard(GLOBAL)
 include("${CMAKE_CURRENT_LIST_DIR}/internal.cmake")
 
 # Add a CTest check which verifies that source files are formatted by clang-format.  Formatting is a
 # project instrumentation/devtool and is never attached as a compiler flag to third-party targets.
+
+# --------------------------------------------------------------------------------------------------
+# Public API
+# --------------------------------------------------------------------------------------------------
+
+# Register clang-format checks as CTest tests; requires clang-format.
 function(besa_add_clang_format)
   _besa_require_config_complete("besa_add_clang_format")
   cmake_parse_arguments(ARG "" "NAME" "LABELS" ${ARGN})

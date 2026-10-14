@@ -1,7 +1,12 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# BESA package entry point for find_package(besa CONFIG REQUIRED).
+# Loads public project APIs and their internal dependencies exactly once.
+# This file establishes no project configuration: the consuming project declares
+# its options first and calls besa_finalize_options() when ready.
+
 include_guard(GLOBAL)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 

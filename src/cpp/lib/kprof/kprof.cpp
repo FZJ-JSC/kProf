@@ -380,28 +380,24 @@ void set::end() noexcept {
 }
 
 std::span<measure const> set::report() const noexcept {
-  return {impl_->measurements.data(), impl_->measurements.size()};
+    return {impl_->measurements.data(), impl_->measurements.size()};
 }
 
-std::uint64_t set::get(event_descriptor const& descriptor) const noexcept {
-  return get(descriptor.name);
+std::uint64_t set::get(event_descriptor const &descriptor) const noexcept {
+    return get(descriptor.name);
 }
 
 std::uint64_t set::get(std::string_view name) const noexcept {
-  auto const it = impl_->name_to_index.find(name);
-  if (it == impl_->name_to_index.end())
-    return 0;
-  return impl_->measurements[it->second].value;
+    auto const it = impl_->name_to_index.find(name);
+    if (it == impl_->name_to_index.end())
+        return 0;
+    return impl_->measurements[it->second].value;
 }
 
 std::chrono::nanoseconds set::duration() const noexcept {
-  return impl_->duration();
+    return impl_->duration();
 }
 
-bool set::empty() const noexcept {
-  return impl_->counters.empty();
-}
-
-
+bool set::empty() const noexcept { return impl_->counters.empty(); }
 
 } // namespace kprof

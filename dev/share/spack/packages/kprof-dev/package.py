@@ -12,5 +12,8 @@ class KprofDev(BundlePackage):
 
     variant("test", default=False, description="Install test dependencies")
 
-    depends_on("besa")
-    depends_on("catch2", when="+test")
+    # These are developer tools, not dependencies of a packaged kprof binary.
+    # Run dependencies make them available in the Spack environment view.
+    depends_on("cmake@4.3:", type=("build", "run"))
+    depends_on("ninja", type=("build", "run"))
+    depends_on("catch2@3:", when="+test", type=("link", "run"))

@@ -1,53 +1,41 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# Discover runtime and compilation-only tests from semantic directories.
+#
+# CTest names are derived from test file paths. Selected feature spaces, test
+# modes and devtools are read from the finalized BESA configuration. Test file
+# suffixes control expected failure/disabled properties, while optional extra
+# source directories support multi-file tests. All selection paths use the same
+# internal predicate.
+
 include_guard(GLOBAL)
 include("${CMAKE_CURRENT_LIST_DIR}/internal.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/keyso.cmake")
 
-function(_besa_test_target_name PREFIX RELATIVE_SOURCE OUTPUT_VARIABLE)
-  string(REGEX REPLACE "\\.[^.]+$" "" _name "${RELATIVE_SOURCE}")
-  string(REPLACE "/" "." _name "${_name}")
-  if(PREFIX)
-    set(_name "${PREFIX}.${_name}")
-  endif()
-  set("${OUTPUT_VARIABLE}" "${_name}" PARENT_SCOPE)
-endfunction()
+# --------------------------------------------------------------------------------------------------
+# Public API
+# --------------------------------------------------------------------------------------------------
 
-function(_besa_test_source_is_test SOURCE OUTPUT_VARIABLE)
-  if(SOURCE MATCHES "(^|/)?.*\\.t\\.(c|cc|cpp|cxx|cu)$")
-    set("${OUTPUT_VARIABLE}" TRUE PARENT_SCOPE)
-  else()
-    set("${OUTPUT_VARIABLE}" FALSE PARENT_SCOPE)
-  endif()
-endfunction()
-
-# Discover executable tests below a directory.  Files ending in `.t.<ext>` are expected to pass;
-# `.fail.t.<ext>` are expected to fail; and `.disabled.t.<ext>` are built but disabled in CTest.
-# Companion directories named after a test source with its `.t.<ext>` suffix removed are added as
-# extra sources, preserving the useful multi-file test convention from the original BESA helpers.
+# Discover runnable tests beneath NAME using the .t.* file convention.
+#   besa_test_add_directory(NAME <dir> [PREFIX <prefix>] [CONDITION <space>]
+#                           [MODES ...] [DEVTOOLS ...] [TARGET_LIST ...]
+#                           [LABELS ...] [CMDLINE ...] [COVERAGE_GROUP <group>])
 function(besa_test_add_directory)
   _besa_require_config_complete("besa_test_add_directory")
   cmake_parse_arguments(
     ARG
     ""
     "NAME;PREFIX;COVERAGE_GROUP;CONDITION"
-    "LABELS;CMDLINE;TARGET_LIST;MODES"
+    "LABELS;CMDLINE;TARGET_LIST;MODES;DEVTOOLS"
     ${ARGN}
   )
   _besa_require_no_unparsed("besa_test_add_directory" "${ARG_UNPARSED_ARGUMENTS}")
   _besa_require_value("besa_test_add_directory" "NAME" "${ARG_NAME}")
 
-  if(ARG_CONDITION)
-    get_property(_features GLOBAL PROPERTY BESA_ENABLED_FEATURES)
-    _besa_keyso_matches("${ARG_CONDITION}" "${_features}" _selected)
-    if(NOT _selected)
-      return()
-    endif()
-  endif()
-  besa_test_modes_check(OUTPUT_VARIABLE _mode_selected MODES ${ARG_MODES})
-  if(NOT _mode_selected)
+  _besa_test_directory_selected("${ARG_CONDITION}" "${ARG_MODES}" "${ARG_DEVTOOLS}" _selected)
+  if(NOT _selected)
     return()
   endif()
 
@@ -80,39 +68,24 @@ function(besa_test_add_directory)
     endif()
 
     add_test(NAME "${_target}" COMMAND $<TARGET_FILE:${_target}> ${ARG_CMDLINE})
-    if(ARG_LABELS)
-      set_property(TEST "${_target}" PROPERTY LABELS "${ARG_LABELS}")
-    endif()
-    if(_target MATCHES "\\.fail\\.t$")
-      set_tests_properties("${_target}" PROPERTIES WILL_FAIL TRUE)
-    endif()
-    if(_target MATCHES "\\.disabled(\\.fail)?\\.t$")
-      set_tests_properties("${_target}" PROPERTIES DISABLED TRUE)
-    endif()
+    _besa_test_apply_properties("${_target}" "${ARG_LABELS}")
 
-    if(PROJECT_DEVTOOLS_COVERAGE AND ARG_COVERAGE_GROUP)
+    if(BUILD_DEVTOOLS_COVERAGE AND ARG_COVERAGE_GROUP)
       _besa_coverage_register_test("${ARG_COVERAGE_GROUP}" "${_target}" "${_target}")
     endif()
   endforeach()
 endfunction()
 
-# Discover compile-only checks.  Every matching test becomes EXCLUDE_FROM_ALL and CTest invokes the
-# build tool for that target.  `.fail.t.<ext>` therefore expresses a target which must fail to build.
+# Register compile-only tests discovered under a semantic directory.
+#   besa_compile_test_add_directory(NAME <dir> [PREFIX <prefix>] ...)
 function(besa_compile_test_add_directory)
   _besa_require_config_complete("besa_compile_test_add_directory")
-  cmake_parse_arguments(ARG "" "NAME;PREFIX;CONDITION" "LABELS;TARGET_LIST;MODES" ${ARGN})
+  cmake_parse_arguments(ARG "" "NAME;PREFIX;CONDITION" "LABELS;TARGET_LIST;MODES;DEVTOOLS" ${ARGN})
   _besa_require_no_unparsed("besa_compile_test_add_directory" "${ARG_UNPARSED_ARGUMENTS}")
   _besa_require_value("besa_compile_test_add_directory" "NAME" "${ARG_NAME}")
 
-  if(ARG_CONDITION)
-    get_property(_features GLOBAL PROPERTY BESA_ENABLED_FEATURES)
-    _besa_keyso_matches("${ARG_CONDITION}" "${_features}" _selected)
-    if(NOT _selected)
-      return()
-    endif()
-  endif()
-  besa_test_modes_check(OUTPUT_VARIABLE _mode_selected MODES ${ARG_MODES})
-  if(NOT _mode_selected)
+  _besa_test_directory_selected("${ARG_CONDITION}" "${ARG_MODES}" "${ARG_DEVTOOLS}" _selected)
+  if(NOT _selected)
     return()
   endif()
 
@@ -133,14 +106,66 @@ function(besa_compile_test_add_directory)
       NAME "${_target}"
       COMMAND "${CMAKE_COMMAND}" --build "${PROJECT_BINARY_DIR}" --target "${_target}" --config $<CONFIG>
     )
-    if(ARG_LABELS)
-      set_property(TEST "${_target}" PROPERTY LABELS "${ARG_LABELS}")
-    endif()
-    if(_target MATCHES "\\.fail\\.t$")
-      set_tests_properties("${_target}" PROPERTIES WILL_FAIL TRUE)
-    endif()
-    if(_target MATCHES "\\.disabled(\\.fail)?\\.t$")
-      set_tests_properties("${_target}" PROPERTIES DISABLED TRUE)
-    endif()
+    _besa_test_apply_properties("${_target}" "${ARG_LABELS}")
   endforeach()
+endfunction()
+
+# --------------------------------------------------------------------------------------------------
+# Internal implementation
+# --------------------------------------------------------------------------------------------------
+
+function(_besa_test_target_name PREFIX RELATIVE_SOURCE OUTPUT_VARIABLE)
+  string(REGEX REPLACE "\\.[^.]+$" "" _name "${RELATIVE_SOURCE}")
+  string(REPLACE "/" "." _name "${_name}")
+  if(PREFIX)
+    set(_name "${PREFIX}.${_name}")
+  endif()
+  set("${OUTPUT_VARIABLE}" "${_name}" PARENT_SCOPE)
+endfunction()
+
+function(_besa_test_source_is_test SOURCE OUTPUT_VARIABLE)
+  if(SOURCE MATCHES "(^|/)?.*\\.t\\.(c|cc|cpp|cxx|cu)$")
+    set("${OUTPUT_VARIABLE}" TRUE PARENT_SCOPE)
+  else()
+    set("${OUTPUT_VARIABLE}" FALSE PARENT_SCOPE)
+  endif()
+endfunction()
+
+# Both executable and compile-only directories use the same feature, mode, and devtool
+# selection rules. Keep the evaluation order: an inactive feature condition skips the
+# remaining checks, while a selected directory still validates its mode/devtool names.
+function(_besa_test_directory_selected CONDITION MODES DEVTOOLS OUTPUT_VARIABLE)
+  if(CONDITION)
+    get_property(_features GLOBAL PROPERTY BESA_ENABLED_FEATURES)
+    _besa_keyso_matches("${CONDITION}" "${_features}" _selected)
+    if(NOT _selected)
+      set("${OUTPUT_VARIABLE}" FALSE PARENT_SCOPE)
+      return()
+    endif()
+  endif()
+
+  besa_test_modes_check(OUTPUT_VARIABLE _mode_selected MODES ${MODES})
+  if(DEVTOOLS)
+    besa_devtools_check(OUTPUT_VARIABLE _devtool_selected DEVTOOLS ${DEVTOOLS})
+  else()
+    set(_devtool_selected TRUE)
+  endif()
+  if(_mode_selected AND _devtool_selected)
+    set("${OUTPUT_VARIABLE}" TRUE PARENT_SCOPE)
+  else()
+    set("${OUTPUT_VARIABLE}" FALSE PARENT_SCOPE)
+  endif()
+endfunction()
+
+# The test-name suffix determines CTest expectations for both kinds of tests.
+function(_besa_test_apply_properties TARGET_NAME LABELS)
+  if(LABELS)
+    set_property(TEST "${TARGET_NAME}" PROPERTY LABELS "${LABELS}")
+  endif()
+  if(TARGET_NAME MATCHES "\\.fail\\.t$")
+    set_tests_properties("${TARGET_NAME}" PROPERTIES WILL_FAIL TRUE)
+  endif()
+  if(TARGET_NAME MATCHES "\\.disabled(\\.fail)?\\.t$")
+    set_tests_properties("${TARGET_NAME}" PROPERTIES DISABLED TRUE)
+  endif()
 endfunction()

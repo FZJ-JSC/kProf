@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef kprof_HPP
-#define kprof_HPP
+#ifndef KPROF_HPP
+#define KPROF_HPP
 
 #include <chrono>
 #include <cstdint>
@@ -80,16 +80,16 @@ public:
 
     // compose behaviour: steal the RHS' counters and open fds
     set operator+(set&& rhs) noexcept;
-    
+
     void start() noexcept;
     void end() noexcept;
 
-    // valid until set is destroyed or end() is called again. 
+    // valid until set is destroyed or end() is called again.
     [[nodiscard]] std::span<measure const> report() const noexcept;
-    [[nodiscard]] std::uint64_t get(event_descriptor const& descriptor) const noexcept; 
-    [[nodiscard]] std::uint64_t get(std::string_view name) const noexcept; 
-    [[nodiscard]] std::chrono::nanoseconds duration() const noexcept; 
-    [[nodiscard]] bool empty() const noexcept; 
+    [[nodiscard]] std::uint64_t get(event_descriptor const& descriptor) const noexcept;
+    [[nodiscard]] std::uint64_t get(std::string_view name) const noexcept;
+    [[nodiscard]] std::chrono::nanoseconds duration() const noexcept;
+    [[nodiscard]] bool empty() const noexcept;
 
     private:
         struct impl;
@@ -98,4 +98,4 @@ public:
 
 } // namespace kprof
 
-#endif // kprof_HPP
+#endif // KPROF_HPP

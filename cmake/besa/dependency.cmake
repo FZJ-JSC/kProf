@@ -1,11 +1,20 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# Declare package dependencies of the consuming project.
+# Dependencies recorded here are used by the package exporter when producing
+# downstream CMake find_dependency() statements.
+
 include_guard(GLOBAL)
 include("${CMAKE_CURRENT_LIST_DIR}/internal.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/keyso.cmake")
 
+# --------------------------------------------------------------------------------------------------
+# Public API
+# --------------------------------------------------------------------------------------------------
+
+# Record a dependency for downstream package configuration.
 function(besa_dependency_add)
   _besa_require_config_complete("besa_dependency_add")
   cmake_parse_arguments(

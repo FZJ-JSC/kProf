@@ -1,7 +1,11 @@
-# SPDX-FileCopyrightText: 2026 BESA developers
-# SPDX-FileCopyrightText: 2026 kprof developers
-#
+# --------------------------------------------------------------------------------------------------
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 besa developers
+# --------------------------------------------------------------------------------------------------
+# AddressSanitizer instrumentation policy.
+# Exposes the private implementation target besa.asan and its besa::asan alias.
+# Loaded on demand by devtools.cmake after compiler languages have been enabled.
+
 include_guard(GLOBAL)
 add_library(besa.asan INTERFACE)
 add_library(besa::asan ALIAS besa.asan)
