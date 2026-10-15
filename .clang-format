@@ -3,28 +3,28 @@
 # SPDX-FileCopyrightText: (C) 2020, Jayesh Badwaik <jayesh@badwaik.dev>
 #-------------------------------------------------------------------------------
 ---
-Language:        Cpp
+Language: Cpp
 # BasedOnStyle:  LLVM
 AccessModifierOffset: -2
 AlignAfterOpenBracket: AlwaysBreak
 AlignEscapedNewlinesLeft: false
-AlignOperands:   true
+AlignOperands: Align
 AlignTrailingComments: true
 AllowAllParametersOfDeclarationOnNextLine: true
-AllowShortBlocksOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
 AllowShortCaseLabelsOnASingleLine: false
-AllowShortIfStatementsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: InlineOnly
-AlwaysBreakAfterDefinitionReturnType: false
-AlwaysBreakTemplateDeclarations: true
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakTemplateDeclarations: "Yes"
 AlwaysBreakBeforeMultilineStrings: true
-BreakBeforeBinaryOperators: true
+BreakBeforeBinaryOperators: All
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializersBeforeComma: false
-BinPackParameters: false
+BinPackParameters: OnePerLine
 BinPackArguments: false
-ColumnLimit:  100
+ColumnLimit: 100
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 0
 DerivePointerAlignment: false
@@ -47,31 +47,29 @@ PenaltyReturnTypeOnItsOwnLine: 1000000
 PointerAlignment: Left
 SpacesBeforeTrailingComments: 1
 Cpp11BracedListStyle: true
-Standard:        Cpp11
-IndentWidth:     2
-TabWidth:        2
-UseTab:          Never
+Standard: c++20
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
 BreakBeforeBraces: Stroustrup
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
-SpacesInAngles:  false
+SpacesInAngles: Never
 SpaceInEmptyParentheses: false
 SpacesInCStyleCastParentheses: false
 SpaceAfterCStyleCast: false
 SpacesInContainerLiterals: true
 SpaceBeforeAssignmentOperators: true
 ContinuationIndentWidth: 2
-CommentPragmas:  '^ IWYU pragma:'
-SortIncludes: 'CaseSensitive'
+CommentPragmas: "^ IWYU pragma:"
+SortIncludes:
+  Enabled: true
+  IgnoreCase: false
+  IgnoreExtension: true
+
 SpaceBeforeParens: ControlStatements
-DisableFormat:   false
-StatementMacros: [
-  'NOLA_GLOBAL',
-  'NOLA_HOST',
-  'NOLA_DEVICE',
-  'NOLA_HOST_DEVICE'
-]
-...
+DisableFormat: false
+StatementMacros: ["NOLA_GLOBAL", "NOLA_HOST", "NOLA_DEVICE", "NOLA_HOST_DEVICE"]
 ...
 Language: Json
 BasedOnStyle: llvm
