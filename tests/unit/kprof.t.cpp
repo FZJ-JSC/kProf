@@ -45,7 +45,7 @@ TEST_CASE("event descriptors expose expected metadata", "[event]") {
 }
 
 TEST_CASE("timer-only set measures a duration", "[set][timer]") {
-  kprof::set s{kprof::event::timer_ns};
+  kprof::set s{std::vector{kprof::event::timer_ns}};
   REQUIRE_FALSE(s.empty());
   CHECK(s.report().empty()); // nothing measured until end()
 
@@ -61,8 +61,8 @@ TEST_CASE("timer-only set measures a duration", "[set][timer]") {
 }
 
 TEST_CASE("full set preserves construction order", "[set]") {
-  kprof::set s{kprof::event::hw_instrs, kprof::event::cpu_cycles,
-               kprof::event::l1_read_access, kprof::event::timer_ns};
+  kprof::set s{std::vector{kprof::event::hw_instrs, kprof::event::cpu_cycles,
+               kprof::event::l1_read_access, kprof::event::timer_ns}};
   REQUIRE_FALSE(s.empty());
 
   s.start();
@@ -82,7 +82,7 @@ TEST_CASE("full set preserves construction order", "[set]") {
 }
 
 TEST_CASE("a set without a timer reports zero duration", "[set]") {
-  kprof::set s{kprof::event::hw_instrs};
+  kprof::set s{std::vector{kprof::event::hw_instrs}};
   s.start();
   busy();
   s.end();
@@ -90,7 +90,7 @@ TEST_CASE("a set without a timer reports zero duration", "[set]") {
 }
 
 TEST_CASE("get() agrees with report()", "[set]") {
-  kprof::set s{kprof::event::timer_ns};
+  kprof::set s{std::vector{kprof::event::timer_ns}};
   s.start();
   busy();
   s.end();
@@ -101,7 +101,7 @@ TEST_CASE("get() agrees with report()", "[set]") {
 }
 
 TEST_CASE("repeated start/end cycles rebuild measurements", "[set]") {
-  kprof::set s{kprof::event::timer_ns};
+  kprof::set s{std::vector{kprof::event::timer_ns}};
   for (int round = 0; round < 2; ++round) {
     s.start();
     busy();
@@ -114,7 +114,7 @@ TEST_CASE("repeated start/end cycles rebuild measurements", "[set]") {
 TEST_CASE("custom descriptors are measured without crashing", "[set]") {
   kprof::event_descriptor raw{"raw", kprof::event_type::raw, 0xdeadbeef,
                               kprof::event_domain::user, kprof::event_kind::perf};
-  kprof::set s{raw};
+  kprof::set s{std::vector{raw}};
   REQUIRE_FALSE(s.empty());
   CHECK(s.report().empty());
 

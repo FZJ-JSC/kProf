@@ -5,9 +5,9 @@
 #ifndef KPROF_HPP
 #define KPROF_HPP
 
-#include <array>
+
+#include <vector>
 #include <chrono>
-#include <concepts>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -87,14 +87,7 @@ public:
   explicit set(std::string_view config_file);
 
   // compose from descriptors
-  template <class... E>
-    requires((std::convertible_to<E, event_descriptor>) && ...)
-  set(E&&... events)
-  : set(
-      std::array<event_descriptor, sizeof...(E)>{
-        static_cast<event_descriptor>(std::forward<E>(events))...})
-  {
-  }
+  explicit set(std::vector<event_descriptor> events);
 
   ~set();
 
@@ -119,7 +112,6 @@ public:
 private:
   struct impl;
   std::unique_ptr<impl> impl_;
-  set(std::span<event_descriptor const> events);
 };
 
 } // namespace kprof

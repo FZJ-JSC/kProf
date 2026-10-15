@@ -135,13 +135,6 @@ struct set::impl {
 
     c.is_leader = (current_leader_fd < 0);
 
-    // int fd = static_cast<int>(
-    //   ::syscall(SYS_perf_event_open, &pe, 0, -1, c.is_leader ? -1 : current_leader_fd, 0));
-    // if (fd < 0 && (errno == EINVAL || errno == ENOSPC)) {
-    //   fd = static_cast<int>(::syscall(SYS_perf_event_open, &pe, 0, -1, -1, 0));
-    //   c.is_leader = true;
-    // }
-
     auto try_open = [&](bool pinned, int gfd) {
       pe.pinned = pinned ? 1 : 0;
       pe.inherit = pinned ? 0 : 1;
@@ -294,7 +287,7 @@ struct set::impl {
       return;
     for (int const lfd : leader_fds) {
       auto const bytes = ::read(lfd, read_buf.data(), read_buf.size() * sizeof(std::uint64_t));
-      if (bytes < static_cast<ssize_t>(3*sizeof(std::uint64_t)))
+      if (bytes < static_cast<ssize_t>(3 * sizeof(std::uint64_t)))
         continue;
       std::uint64_t const nr = read_buf[0];
       std::uint64_t en = read_buf[1], rn = read_buf[2];
@@ -351,7 +344,8 @@ struct set::impl {
         }
         else
           ratio = de > 0 ? 0.0 : 1.0;
-      } else {
+      }
+      else {
         v = invalid_value;
       }
       measurements.push_back({std::string_view(c.name), v, ratio});
@@ -376,7 +370,7 @@ set::set(std::string_view config_file) : impl_(std::make_unique<impl>())
   impl_->finalize();
 }
 
-set::set(std::span<event_descriptor const> events) : impl_(std::make_unique<impl>())
+set::set(std::vector<event_descriptor> events) : impl_(std::make_unique<impl>())
 {
   impl_->counters.reserve(events.size());
   for (auto const& e : events)

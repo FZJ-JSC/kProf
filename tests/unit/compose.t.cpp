@@ -6,12 +6,14 @@
 
 #include <cstdint>
 #include <utility>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
 namespace {
 
-void busy() {
+void busy()
+{
   volatile std::uint64_t sink = 0;
   for (int i = 0; i < 1000000; ++i)
     sink += static_cast<std::uint64_t>(i);
@@ -20,9 +22,10 @@ void busy() {
 
 } // namespace
 
-TEST_CASE("operator+ merges two sets", "[compose]") {
-  kprof::set a{kprof::event::hw_instrs};
-  kprof::set b{kprof::event::timer_ns};
+TEST_CASE("operator+ merges two sets", "[compose]")
+{
+  kprof::set a{std::vector{kprof::event::hw_instrs}};
+  kprof::set b{std::vector{kprof::event::timer_ns}};
 
   auto merged = std::move(a) + std::move(b);
   REQUIRE_FALSE(merged.empty());
@@ -38,9 +41,9 @@ TEST_CASE("operator+ merges two sets", "[compose]") {
   CHECK(r[1].value > 0);
 }
 
-TEST_CASE("move construction and assignment preserve measurements",
-          "[compose]") {
-  kprof::set a{kprof::event::timer_ns};
+TEST_CASE("move construction and assignment preserve measurements", "[compose]")
+{
+  kprof::set a{std::vector{kprof::event::timer_ns}};
   a.start();
   busy();
   a.end();
@@ -49,7 +52,7 @@ TEST_CASE("move construction and assignment preserve measurements",
   REQUIRE(b.report().size() == 1);
   CHECK(b.report()[0].name == "timer_ns");
 
-  kprof::set c{kprof::event::cpu_cycles};
+  kprof::set c{std::vector{kprof::event::cpu_cycles}};
   c = std::move(b);
   c.start();
   busy();
@@ -58,9 +61,10 @@ TEST_CASE("move construction and assignment preserve measurements",
   CHECK(c.report()[0].value > 0);
 }
 
-TEST_CASE("duplicate names resolve to the first registration", "[compose]") {
-  kprof::set a{kprof::event::timer_ns};
-  kprof::set b{kprof::event::timer_ns};
+TEST_CASE("duplicate names resolve to the first registration", "[compose]")
+{
+  kprof::set a{std::vector{kprof::event::timer_ns}};
+  kprof::set b{std::vector{kprof::event::timer_ns}};
 
   auto merged = std::move(a) + std::move(b);
   merged.start();
@@ -74,9 +78,10 @@ TEST_CASE("duplicate names resolve to the first registration", "[compose]") {
   CHECK(merged.get("timer_ns") == r[0].value);
 }
 
-TEST_CASE("merge order is left then right", "[compose]") {
-  kprof::set a{kprof::event::hw_instrs, kprof::event::cpu_cycles};
-  kprof::set b{kprof::event::l1_read_access, kprof::event::timer_ns};
+TEST_CASE("merge order is left then right", "[compose]")
+{
+  kprof::set a{std::vector{kprof::event::hw_instrs, kprof::event::cpu_cycles}};
+  kprof::set b{std::vector{kprof::event::l1_read_access, kprof::event::timer_ns}};
 
   auto merged = std::move(a) + std::move(b);
   merged.start();
