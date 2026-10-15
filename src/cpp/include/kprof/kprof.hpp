@@ -5,14 +5,13 @@
 #ifndef KPROF_HPP
 #define KPROF_HPP
 
-
-#include <vector>
 #include <chrono>
 #include <cstdint>
 #include <memory>
 #include <span>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #if defined(__clang__)
 #define KPROF_DO_NOT_OPTIMIZE __attribute__((optnone))
@@ -21,8 +20,6 @@
 #else
 #define KPROF_DO_NOT_OPTIMIZE
 #endif
-
-
 
 namespace kprof {
 
@@ -69,10 +66,15 @@ struct measure {
 };
 
 inline constexpr std::uint64_t invalid_value = ~std::uint64_t(0);
-inline constexpr bool is_invalid(std::uint64_t value) noexcept { return value == invalid_value; }
+inline constexpr bool is_invalid(std::uint64_t value) noexcept
+{
+  return value == invalid_value;
+}
+
+enum class compose_direction { left, right };
 
 /* A set is a composable collection of counters measured together. `start()` and
- * `end()` ednote a region.  The timer (if present) is read on the calling
+ * `end()` denote a region.  The timer (if present) is read on the calling
  * thread with std::chrono::steady_clock, while perf counters are grouped and
  * read once per leader. The implementation is entirely synchronous and
  * allocation-free on the start()/end() path. */

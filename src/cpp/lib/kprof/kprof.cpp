@@ -334,6 +334,8 @@ struct set::impl {
       else if (c.valid) {
         auto const de = c.time_enabled - c.base_enabled;
         auto const dr = c.time_running - c.base_running;
+        if (dr == 0)
+          v = invalid_value;
         if (dr > 0) {
           ratio = std::max(
             1.0,

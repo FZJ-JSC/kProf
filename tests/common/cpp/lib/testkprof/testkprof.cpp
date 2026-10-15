@@ -5,5 +5,8 @@
 #include <testkprof/testkprof.hpp>
 
 namespace testkprof {
-auto smoke_test() -> int { return 0; }
+auto smoke_test() -> int
+{
+  return 0;
+}
 } // namespace testkprof

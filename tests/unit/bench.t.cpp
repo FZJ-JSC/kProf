@@ -40,10 +40,9 @@ int pin_to_certain_cpu()
   // if (selected < 0)
   //   return -1;
   int const selected = 2;
-  if (!CPU_ISSET(selected, &allowed)){
-     return -1;
+  if (!CPU_ISSET(selected, &allowed)) {
+    return -1;
   }
-
 
   cpu_set_t single;
   CPU_ZERO(&single);
