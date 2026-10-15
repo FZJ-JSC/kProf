@@ -3,3 +3,7 @@
 # SPDX-FileCopyrightText: 2026 kprof developers
 # --------------------------------------------------------------------------------------------------
 # External dependencies.
+
+if (BUILD_TESTING)
+    besa_dependency_add(NAME Catch2 VERSION 3 KIND DEV)
+endif()
