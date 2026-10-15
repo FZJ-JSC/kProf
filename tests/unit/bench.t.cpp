@@ -22,27 +22,26 @@
 
 namespace {
 
-int pin_to_certain_cpu()
+int pin_to_first_cpu()
 {
   cpu_set_t allowed;
   CPU_ZERO(&allowed);
   if (::sched_getaffinity(0, sizeof(allowed), &allowed) != 0)
     return -1;
 
-  // pin to selected core - cpu0 may be used by kernel interrupts
-  // int selected = -1;
-  // for (int i = CPU_SETSIZE - 1; i >= 0; --i) {
-  //   if (CPU_ISSET(i, &allowed)) {
-  //     selected = i;
-  //     break;
-  //   }
-  // }
-  // if (selected < 0)
-  //   return -1;
-  int const selected = 2;
-  if (!CPU_ISSET(selected, &allowed)) {
-    return -1;
+  // pin to lowest allowed CPU (skipping cpu0 if possible)
+  int selected = -1;
+  for (int i = 1; i < CPU_SETSIZE; ++i) {
+    if (CPU_ISSET(i, &allowed)) {
+      selected = i;
+      break;
+    }
   }
+  // fall back to cpu0 if nothing works
+  if (selected < 0 && CPU_ISSET(0, &allowed))
+    selected = 0;
+  if (selected < 0)
+    return -1;
 
   cpu_set_t single;
   CPU_ZERO(&single);
@@ -165,11 +164,11 @@ TEST_CASE("profile busy() with the default counter set", "[benchmark]")
   ::unsetenv("KPROF_COUNTER_FILE");
   ::unsetenv("KPROF_COUNTER_CONF");
 
-  int const cpu = pin_to_certain_cpu();
+  int const cpu = pin_to_first_cpu();
   if (cpu >= 0)
     std::printf("pinned benchmark to CPU %d\n", cpu);
   else
-    std::fprintf(stderr, "kprof: could not pin benchmark to lowest CPU\n");
+    std::fprintf(stderr, "kprof: could not pin benchmark to a quiet CPU\n");
 
   constexpr std::size_t warmup = 10;
   constexpr std::size_t runs = 100;
