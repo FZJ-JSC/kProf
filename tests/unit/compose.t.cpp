@@ -22,19 +22,19 @@ void busy()
 
 } // namespace
 
-TEST_CASE("operator+ merges two sets", "[compose]")
+TEST_CASE("append merges two sets", "[compose]")
 {
   kprof::set a{std::vector{kprof::event::hw_instrs}};
   kprof::set b{std::vector{kprof::event::timer_ns}};
 
-  auto merged = std::move(a) + std::move(b);
-  REQUIRE_FALSE(merged.empty());
+  a.append(std::move(b));
+  REQUIRE_FALSE(a.empty());
 
-  merged.start();
+  a.start();
   busy();
-  merged.end();
+  a.end();
 
-  auto r = merged.report();
+  auto r = a.report();
   REQUIRE(r.size() == 2);
   CHECK(r[0].name == "hw_instrs");
   CHECK(r[1].name == "timer_ns");
@@ -66,32 +66,49 @@ TEST_CASE("duplicate names resolve to the first registration", "[compose]")
   kprof::set a{std::vector{kprof::event::timer_ns}};
   kprof::set b{std::vector{kprof::event::timer_ns}};
 
-  auto merged = std::move(a) + std::move(b);
-  merged.start();
+  a.append(std::move(b));
+  a.start();
   busy();
-  merged.end();
+  a.end();
 
-  auto r = merged.report();
+  auto r = a.report();
   REQUIRE(r.size() == 2);
   CHECK(r[0].name == "timer_ns");
   CHECK(r[1].name == "timer_ns");
-  CHECK(merged.get("timer_ns") == r[0].value);
+  CHECK(a.get("timer_ns") == r[0].value);
 }
 
 TEST_CASE("merge order is left then right", "[compose]")
 {
   kprof::set a{std::vector{kprof::event::hw_instrs, kprof::event::cpu_cycles}};
-  kprof::set b{std::vector{kprof::event::l1_read_access, kprof::event::timer_ns}};
+  kprof::set b{std::vector{kprof::event::l1_read_access}};
+  kprof::set c{std::vector{kprof::event::timer_ns}};
 
-  auto merged = std::move(a) + std::move(b);
-  merged.start();
+  a.append(std::move(b)).append(std::move(c));
+  a.start();
   busy();
-  merged.end();
+  a.end();
 
-  auto r = merged.report();
+  auto r = a.report();
   REQUIRE(r.size() == 4);
   CHECK(r[0].name == "hw_instrs");
   CHECK(r[1].name == "cpu_cycles");
   CHECK(r[2].name == "l1_read_access");
   CHECK(r[3].name == "timer_ns");
+}
+
+TEST_CASE("self-append is a no-op", "[compose]")
+{
+  kprof::set a{std::vector{kprof::event::hw_instrs, kprof::event::cpu_cycles}};
+  kprof::set b{std::vector{kprof::event::l1_read_access, kprof::event::timer_ns}};
+
+  a.append(std::move(a));
+  a.start();
+  busy();
+  a.end();
+
+  auto r = a.report();
+  REQUIRE(r.size() == 2);
+  CHECK(r[0].name == "hw_instrs");
+  CHECK(r[1].name == "cpu_cycles");
 }

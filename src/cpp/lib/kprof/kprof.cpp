@@ -292,11 +292,6 @@ struct set::impl {
       std::uint64_t const nr = read_buf[0];
       std::uint64_t en = read_buf[1], rn = read_buf[2];
       for (std::uint64_t k = 0; k < nr; ++k) {
-        // std::uint64_t const value = read_buf[1 + 2 * k];
-        // std::uint64_t const id = read_buf[2 + 2 * k];
-        // auto const it = id_to_index.find(id);
-        // if (it != id_to_index.end())
-        //   counters[it->second].value = value;
 
         std::uint64_t const* e = &read_buf[3 + 2 * k];
         auto const it = id_to_index.find(e[1]);
@@ -384,12 +379,14 @@ set::~set() = default;
 set::set(set&&) noexcept = default;
 set& set::operator=(set&&) noexcept = default;
 
-set set::operator+(set&& rhs) noexcept
+set& set::append(set&& rhs) noexcept
 {
+  if (this == &rhs)
+    return *this;
 
   impl_->absorb(std::move(*rhs.impl_));
   impl_->finalize();
-  return std::move(*this);
+  return *this;
 }
 
 void set::start() noexcept

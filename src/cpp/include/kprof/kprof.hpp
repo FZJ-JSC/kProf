@@ -10,7 +10,6 @@
 #include <memory>
 #include <span>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #if defined(__clang__)
@@ -71,8 +70,6 @@ inline constexpr bool is_invalid(std::uint64_t value) noexcept
   return value == invalid_value;
 }
 
-enum class compose_direction { left, right };
-
 /* A set is a composable collection of counters measured together. `start()` and
  * `end()` denote a region.  The timer (if present) is read on the calling
  * thread with std::chrono::steady_clock, while perf counters are grouped and
@@ -99,7 +96,7 @@ public:
   set& operator=(set const&) = delete;
 
   // compose behaviour: steal the RHS' counters and open fds
-  set operator+(set&& rhs) noexcept;
+  set& append(set&& rhs) noexcept;
 
   void start() noexcept;
   void end() noexcept;
