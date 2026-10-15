@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cstddef>
 #include <kprof/kprof.hpp>
 
 #include <linux/perf_event.h>
@@ -12,7 +13,7 @@
 
 namespace {
 
-void busy() {
+KPROF_DO_NOT_OPTIMIZE void busy() {
   volatile std::uint64_t sink = 0;
   for (int i = 0; i < 1000000; ++i)
     sink += static_cast<std::uint64_t>(i);
@@ -76,6 +77,8 @@ TEST_CASE("full set preserves construction order", "[set]") {
   CHECK(r[3].name == "timer_ns");
   CHECK(r[3].value > 0);
   CHECK(r[3].value == static_cast<std::uint64_t>(s.duration().count()));
+  for (std::size_t i = 0; i < r.size()-1; ++i )
+    CHECK( r[i].scaling_ratio >= 1.0 );
 }
 
 TEST_CASE("a set without a timer reports zero duration", "[set]") {
