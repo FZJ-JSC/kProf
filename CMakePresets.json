@@ -1,139 +1,139 @@
 {
-    "version": 3,
-    "cmakeMinimumRequired": {
-        "major": 3,
-        "minor": 21,
-        "patch": 0
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "cpp20",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "BUILD_TESTING": "ON"
+      }
     },
-    "configurePresets": [
-        {
-            "name": "cpp20",
-            "hidden": true,
-            "cacheVariables": {
-                "CMAKE_CXX_STANDARD": "20",
-                "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-                "CMAKE_CXX_EXTENSIONS": "OFF",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "BUILD_TESTING": "ON"
-            }
-        },
-        {
-            "name": "gcc-debug",
-            "displayName": "g++ debug",
-            "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++"
-            },
-            "inherits": "cpp20"
-        },
-        {
-            "name": "gcc-relwithdebinfo",
-            "displayName": "g++ RelWithDebInfo",
-            "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_C_COMPILER": "gcc",
-                "CMAKE_CXX_COMPILER": "g++"
-            },
-            "inherits": "cpp20"
-        },
-        {
-            "name": "clang-debug",
-            "displayName": "clang debug",
-            "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_COMPILER": "clang++"
-            },
-            "inherits": "cpp20"
-        },
-        {
-            "name": "clang-relwithdebinfo",
-            "displayName": "clang RelWithDebInfo",
-            "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_COMPILER": "clang++"
-            },
-            "inherits": "cpp20"
-        },
-        {
-            "name": "ci",
-            "displayName": "CI (C++20)",
-            "inherits": "cpp20",
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/ci",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_CXX_COMPILER": "$env{CXX}"
-            }
-        }
-    ],
-    "buildPresets": [
-        {
-            "name": "gcc-debug",
-            "configurePreset": "gcc-debug"
-        },
-        {
-            "name": "gcc-relwithdebinfo",
-            "configurePreset": "gcc-relwithdebinfo"
-        },
-        {
-            "name": "clang-debug",
-            "configurePreset": "clang-debug"
-        },
-        {
-            "name": "clang-relwithdebinfo",
-            "configurePreset": "clang-relwithdebinfo"
-        },
-        {
-            "name": "ci",
-            "configurePreset": "ci"
-        }
-    ],
-    "testPresets": [
-        {
-            "name": "gcc-debug",
-            "configurePreset": "gcc-debug",
-            "output": {
-                "outputOnFailure": true
-            }
-        },
-        {
-            "name": "gcc-relwithdebinfo",
-            "configurePreset": "gcc-relwithdebinfo",
-            "output": {
-                "outputOnFailure": true
-            }
-        },
-        {
-            "name": "clang-debug",
-            "configurePreset": "clang-debug",
-            "output": {
-                "outputOnFailure": true
-            }
-        },
-        {
-            "name": "clang-relwithdebinfo",
-            "configurePreset": "clang-relwithdebinfo",
-            "output": {
-                "outputOnFailure": true
-            }
-        },
-        {
-            "name": "ci",
-            "configurePreset": "ci",
-            "output": {
-                "outputOnFailure": true
-            }
-        }
-    ]
+    {
+      "name": "gcc-debug",
+      "displayName": "g++ debug",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      },
+      "inherits": "cpp20"
+    },
+    {
+      "name": "gcc-relwithdebinfo",
+      "displayName": "g++ RelWithDebInfo",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      },
+      "inherits": "cpp20"
+    },
+    {
+      "name": "clang-debug",
+      "displayName": "clang debug",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      },
+      "inherits": "cpp20"
+    },
+    {
+      "name": "clang-relwithdebinfo",
+      "displayName": "clang RelWithDebInfo",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      },
+      "inherits": "cpp20"
+    },
+    {
+      "name": "ci",
+      "displayName": "CI (C++20)",
+      "inherits": "cpp20",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "$env{CXX}"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "gcc-debug",
+      "configurePreset": "gcc-debug"
+    },
+    {
+      "name": "gcc-relwithdebinfo",
+      "configurePreset": "gcc-relwithdebinfo"
+    },
+    {
+      "name": "clang-debug",
+      "configurePreset": "clang-debug"
+    },
+    {
+      "name": "clang-relwithdebinfo",
+      "configurePreset": "clang-relwithdebinfo"
+    },
+    {
+      "name": "ci",
+      "configurePreset": "ci"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "gcc-debug",
+      "configurePreset": "gcc-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc-relwithdebinfo",
+      "configurePreset": "gcc-relwithdebinfo",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-debug",
+      "configurePreset": "clang-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-relwithdebinfo",
+      "configurePreset": "clang-relwithdebinfo",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
 }

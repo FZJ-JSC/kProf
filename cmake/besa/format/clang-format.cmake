@@ -15,7 +15,7 @@ foreach(_file IN LISTS _candidates)
   # Match excluded directories relative to the source tree so that a checkout which itself lives
   # below a directory named build/ is still checked.
   file(RELATIVE_PATH _relative "${SOURCE_DIR}" "${_file}")
-  if(_relative MATCHES "(^|/)(build|\\.git|\\.venv|dev)/")
+  if(_relative MATCHES "(^|/)(build|\\.git|\\.venv|dev|\\.vscode)/")
     continue()
   endif()
   get_filename_component(_extension "${_file}" LAST_EXT)
