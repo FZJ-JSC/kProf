@@ -5,41 +5,53 @@
 #ifndef KPROF_HPP
 #define KPROF_HPP
 
+#include <array>
 #include <chrono>
+#include <concepts>
 #include <cstdint>
-#include <initializer_list>
 #include <memory>
 #include <span>
 #include <string_view>
+#include <utility>
+
+#if defined(__clang__)
+#define KPROF_DO_NOT_OPTIMIZE __attribute__((optnone))
+#elif defined(__GNUC__) || defined(__GNUG__)
+#define KPROF_DO_NOT_OPTIMIZE __attribute__((optimize(0)))
+#else
+#define KPROF_DO_NOT_OPTIMIZE
+#endif
+
+
 
 namespace kprof {
 
 enum class event_type : std::uint32_t {
-    hardware = 0,
-    software = 1,
-    tracepoint = 2,
-    hw_cache = 3,
-    raw = 4,
+  hardware = 0,
+  software = 1,
+  tracepoint = 2,
+  hw_cache = 3,
+  raw = 4,
 };
 
 enum class event_domain : std::uint8_t {
-    user = 0b001,
-    kernel = 0b010,
-    hypervisor = 0b100,
-    all = 0b111,
+  user = 0b001,
+  kernel = 0b010,
+  hypervisor = 0b100,
+  all = 0b111,
 };
 
 enum class event_kind : std::uint8_t {
-    perf,
-    timer,
+  perf,
+  timer,
 };
 
 struct event_descriptor {
-    std::string_view name;
-    event_type type;
-    std::uint64_t config;
-    event_domain domain = event_domain::user;
-    event_kind kind = event_kind::perf;
+  std::string_view name;
+  event_type type;
+  std::uint64_t config;
+  event_domain domain = event_domain::user;
+  event_kind kind = event_kind::perf;
 };
 
 namespace event {
@@ -50,9 +62,14 @@ extern const event_descriptor timer_ns;
 } // namespace event
 
 struct measure {
-    std::string_view name;
-    std::uint64_t value;
+  std::string_view name;
+  std::uint64_t value;
+  // 1 = clean, >1 = corrected, 0 = counter was never scheduled
+  double scaling_ratio = 1.0;
 };
+
+inline constexpr std::uint64_t invalid_value = ~std::uint64_t(0);
+inline constexpr bool is_invalid(std::uint64_t value) noexcept { return value == invalid_value; }
 
 /* A set is a composable collection of counters measured together. `start()` and
  * `end()` ednote a region.  The timer (if present) is read on the calling
@@ -62,38 +79,47 @@ struct measure {
 
 class set {
 public:
-    // takes care of KPROF_COUNTER_FILE, then KPROF_COUNTER_CONF, else defaults
-    // to the default set
-    set();
+  // takes care of KPROF_COUNTER_FILE, then KPROF_COUNTER_CONF, else defaults
+  // to the default set
+  set();
 
-    // load from CSV file
-    explicit set(std::string_view config_file);
+  // load from CSV file
+  explicit set(std::string_view config_file);
 
-    // compose from descriptors
-    set(std::initializer_list<event_descriptor> events);
-    ~set();
+  // compose from descriptors
+  template <class... E>
+    requires((std::convertible_to<E, event_descriptor>) && ...)
+  set(E&&... events)
+  : set(
+      std::array<event_descriptor, sizeof...(E)>{
+        static_cast<event_descriptor>(std::forward<E>(events))...})
+  {
+  }
 
-    set(set&&) noexcept ;
-    set& operator=(set&&) noexcept;
-    set(set const&) = delete ;
-    set& operator=(set const&) =delete;
+  ~set();
 
-    // compose behaviour: steal the RHS' counters and open fds
-    set operator+(set&& rhs) noexcept;
+  set(set&&) noexcept;
+  set& operator=(set&&) noexcept;
+  set(set const&) = delete;
+  set& operator=(set const&) = delete;
 
-    void start() noexcept;
-    void end() noexcept;
+  // compose behaviour: steal the RHS' counters and open fds
+  set operator+(set&& rhs) noexcept;
 
-    // valid until set is destroyed or end() is called again.
-    [[nodiscard]] std::span<measure const> report() const noexcept;
-    [[nodiscard]] std::uint64_t get(event_descriptor const& descriptor) const noexcept;
-    [[nodiscard]] std::uint64_t get(std::string_view name) const noexcept;
-    [[nodiscard]] std::chrono::nanoseconds duration() const noexcept;
-    [[nodiscard]] bool empty() const noexcept;
+  void start() noexcept;
+  void end() noexcept;
 
-    private:
-        struct impl;
-        std::unique_ptr<impl> impl_;
+  // valid until set is destroyed or end() is called again.
+  [[nodiscard]] std::span<measure const> report() const noexcept;
+  [[nodiscard]] std::uint64_t get(event_descriptor const& descriptor) const noexcept;
+  [[nodiscard]] std::uint64_t get(std::string_view name) const noexcept;
+  [[nodiscard]] std::chrono::nanoseconds duration() const noexcept;
+  [[nodiscard]] bool empty() const noexcept;
+
+private:
+  struct impl;
+  std::unique_ptr<impl> impl_;
+  set(std::span<event_descriptor const> events);
 };
 
 } // namespace kprof

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "error_handler.hpp"
+#include <kprof/error_handler.hpp>
 
 #include <cerrno>
 #include <cstring>

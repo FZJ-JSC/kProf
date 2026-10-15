@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "config.hpp"
+#include <kprof/config.hpp>
 #include <cstddef>
 #include <cstdlib>
 #include <linux/perf_event.h>
