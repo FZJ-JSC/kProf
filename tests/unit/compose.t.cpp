@@ -100,7 +100,6 @@ TEST_CASE("merge order is left then right", "[compose]")
 TEST_CASE("self-append is a no-op", "[compose]")
 {
   kprof::set a{std::vector{kprof::event::hw_instrs, kprof::event::cpu_cycles}};
-  kprof::set b{std::vector{kprof::event::l1_read_access, kprof::event::timer_ns}};
 
   a.append(std::move(a));
   a.start();
