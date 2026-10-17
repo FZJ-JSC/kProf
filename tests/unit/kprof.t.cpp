@@ -2,14 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cstddef>
-#include <kprof/kprof.hpp>
-
-#include <linux/perf_event.h>
-
-#include <cstdint>
-
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <kprof/do_not_optimize.hpp>
+#include <kprof/kprof.hpp>
+#include <linux/perf_event.h>
 
 namespace {
 
