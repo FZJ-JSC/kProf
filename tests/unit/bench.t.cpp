@@ -6,13 +6,13 @@
 #define _GNU_SOURCE
 #endif
 
-#include <kprof/kprof.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <kprof/do_not_optimize.hpp>
+#include <kprof/kprof.hpp>
 #include <sched.h>
 #include <string>
 #include <utility>
