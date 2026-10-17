@@ -8,18 +8,7 @@
 #include <kprof/do_not_optimize.hpp>
 #include <kprof/kprof.hpp>
 #include <linux/perf_event.h>
-
-namespace {
-
-KPROF_DO_NOT_OPTIMIZE void busy()
-{
-  volatile std::uint64_t sink = 0;
-  for (int i = 0; i < 1000000; ++i)
-    sink += static_cast<std::uint64_t>(i);
-  (void)sink;
-}
-
-} // namespace
+#include <testkprof/kernels.hpp>
 
 TEST_CASE("event descriptors expose expected metadata", "[event]")
 {
@@ -48,9 +37,14 @@ TEST_CASE("timer-only set measures a duration", "[set][timer]")
   REQUIRE_FALSE(s.empty());
   CHECK(s.report().empty()); // nothing measured until end()
 
+  auto const ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+  auto const iterations = 100'000ULL + (static_cast<std::uint64_t>(ticks) % 100'000ULL);
+
   s.start();
-  busy();
+  auto const result = testkprof::kernels::accumulate_sequence(iterations);
   s.end();
+
+  CHECK(result == iterations * (iterations - 1) / 2);
 
   auto r = s.report();
   REQUIRE(r.size() == 1);
@@ -68,9 +62,14 @@ TEST_CASE("full set preserves construction order", "[set]")
     kprof::event::timer_ns}};
   REQUIRE_FALSE(s.empty());
 
+  auto const ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+  auto const iterations = 100'000ULL + (static_cast<std::uint64_t>(ticks) % 100'000ULL);
+
   s.start();
-  busy();
+  auto const result = testkprof::kernels::accumulate_sequence(iterations);
   s.end();
+
+  CHECK(result == iterations * (iterations - 1) / 2);
 
   auto r = s.report();
   REQUIRE(r.size() == 4);
@@ -87,18 +86,31 @@ TEST_CASE("full set preserves construction order", "[set]")
 TEST_CASE("a set without a timer reports zero duration", "[set]")
 {
   kprof::set s{std::vector{kprof::event::hw_instrs}};
+
+  auto const ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+  auto const iterations = 100'000ULL + (static_cast<std::uint64_t>(ticks) % 100'000ULL);
+
   s.start();
-  busy();
+  auto const result = testkprof::kernels::accumulate_sequence(iterations);
   s.end();
+
+  CHECK(result == iterations * (iterations - 1) / 2);
+
   CHECK(s.duration().count() == 0);
 }
 
 TEST_CASE("get() agrees with report()", "[set]")
 {
   kprof::set s{std::vector{kprof::event::timer_ns}};
+
+  auto const ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+  auto const iterations = 100'000ULL + (static_cast<std::uint64_t>(ticks) % 100'000ULL);
+
   s.start();
-  busy();
+  auto const result = testkprof::kernels::accumulate_sequence(iterations);
   s.end();
+
+  CHECK(result == iterations * (iterations - 1) / 2);
 
   CHECK(s.get(kprof::event::timer_ns) == s.get("timer_ns"));
   CHECK(s.get("timer_ns") == s.report()[0].value);
@@ -109,9 +121,16 @@ TEST_CASE("repeated start/end cycles rebuild measurements", "[set]")
 {
   kprof::set s{std::vector{kprof::event::timer_ns}};
   for (int round = 0; round < 2; ++round) {
+
+    auto const ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+    auto const iterations = 100'000ULL + (static_cast<std::uint64_t>(ticks) % 100'000ULL);
+
     s.start();
-    busy();
+    auto const result = testkprof::kernels::accumulate_sequence(iterations);
     s.end();
+
+    CHECK(result == iterations * (iterations - 1) / 2);
+
     CHECK(s.report().size() == 1);
     CHECK(s.duration().count() > 0);
   }
@@ -125,9 +144,15 @@ TEST_CASE("custom descriptors are measured without crashing", "[set]")
   REQUIRE_FALSE(s.empty());
   CHECK(s.report().empty());
 
+  auto const ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+  auto const iterations = 100'000ULL + (static_cast<std::uint64_t>(ticks) % 100'000ULL);
+
   s.start();
-  busy();
+  auto const result = testkprof::kernels::accumulate_sequence(iterations);
   s.end();
+
+  CHECK(result == iterations * (iterations - 1) / 2);
+
   REQUIRE(s.report().size() == 1);
   CHECK(s.report()[0].name == "raw");
 }
