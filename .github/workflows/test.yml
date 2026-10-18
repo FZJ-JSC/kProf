@@ -8,143 +8,124 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+
 jobs:
-  build:
-    name: ${{ matrix.compiler }} ${{ matrix.version }}
+  scripts:
+    name: CI scripts (Rocky Linux 10)
     runs-on: ubuntu-24.04
+    container: ${{ vars.KPROF_BOOTSTRAP_IMAGE || 'rockylinux/rockylinux:10' }}
+    steps:
+      - name: Install container prerequisites
+        shell: sh
+        run: |
+          if [ ! -f /opt/kprof/.bootstrap-ready ]; then
+            dnf install -y bash git tar python3
+          fi
+          # GitHub Actions container jobs may start subsequent steps with a
+          # restricted PATH. Expose Rocky's system commands to the runner.
+          printf '%s\n' /usr/bin /usr/sbin /bin /sbin >> "$GITHUB_PATH"
+      - uses: actions/checkout@v6
+      - name: Install ShellCheck from EPEL
+        run: |
+          dnf install -y epel-release
+          dnf install -y ShellCheck
+      - name: Validate CI shell scripts
+        run: |
+          set -euo pipefail
+          shellcheck .github/scripts/*.sh
+          for script in .github/scripts/*.sh; do
+            bash -n "$script"
+          done
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: false
+      - name: Validate compiler configuration and CLI
+        run: |
+          uv run --project dev --no-dev kprof-dev compiler sync --check
+          uv run --project dev --group dev pytest -q dev/tests
+
+  build:
+    name: ${{ matrix.compiler }} ${{ matrix.version }} (Rocky Linux 10)
+    needs: scripts
+    runs-on: ubuntu-24.04
+    container: ${{ vars.KPROF_BOOTSTRAP_IMAGE || 'rockylinux/rockylinux:10' }}
     permissions:
       contents: read
       packages: write
-    # OCI cache indices are updated by each push. Serialize writers for the
-    # same matrix entry while allowing independent compiler jobs and PR reads.
-    concurrency:
-      group: ghcr-spack-${{ github.repository }}-${{ matrix.compiler }}-${{ matrix.version }}-${{ github.event_name == 'pull_request' && github.run_id || 'writers' }}
-      cancel-in-progress: false
+    env:
+      SPACK_DISABLE_LOCAL_CONFIG: '1'
     strategy:
       fail-fast: false
       matrix:
         include:
-          - compiler: GCC
-            version: "16"
-            cxx: g++-16
+          # GCC 14 is the bootstrap compiler. GCC 15/16 and Clang 22
+          # come exclusively from the dedicated x86_64_v3 compiler buildcache.
           - compiler: GCC
             version: "15"
-            cxx: g++-15
-          - compiler: Clang
-            version: "23"
-            cxx: clang++-23
+          - compiler: GCC
+            version: "16"
           - compiler: Clang
             version: "22"
-            cxx: clang++-22
           - compiler: NVHPC
             version: "26.9"
             package: "26-9"
-            cxx: /opt/nvidia/hpc_sdk/Linux_x86_64/26.9/compilers/bin/nvc++
           - compiler: NVHPC
             version: "26.5"
             package: "26-5"
-            cxx: /opt/nvidia/hpc_sdk/Linux_x86_64/26.5/compilers/bin/nvc++
     steps:
+      # These four RPMs are needed before our repository and CLI are available.
+      # All compiler/Spack provisioning is then handled by the common bootstrap.
+      - name: Install checkout prerequisites
+        shell: sh
+        run: |
+          if [ ! -f /opt/kprof/.bootstrap-ready ]; then
+            dnf install -y bash git tar python3
+          fi
+          printf '%s\n' /usr/bin /usr/sbin /bin /sbin >> "$GITHUB_PATH"
       - uses: actions/checkout@v6
-      - name: Install GCC from Ubuntu Toolchain PPA
-        if: ${{ matrix.compiler == 'GCC' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes software-properties-common
-          sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install --yes g++-${{ matrix.version }}
-      - name: Install Clang from LLVM APT repository
-        if: ${{ matrix.compiler == 'Clang' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          wget -q https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh ${{ matrix.version }}
-      - name: Install NVIDIA HPC SDK
-        if: ${{ matrix.compiler == 'NVHPC' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsSL https://developer.download.nvidia.com/hpc-sdk/ubuntu/DEB-GPG-KEY-NVIDIA-HPC-SDK \
-            | sudo gpg --dearmor --yes -o /usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg
-          echo 'deb [signed-by=/usr/share/keyrings/nvidia-hpcsdk-archive-keyring.gpg] https://developer.download.nvidia.com/hpc-sdk/ubuntu/amd64 /' \
-            | sudo tee /etc/apt/sources.list.d/nvhpc.list
-          sudo apt-get update
-          sudo apt-get install --yes nvhpc-${{ matrix.package }}
-      - name: Show compiler version
-        env:
-          CXX: ${{ matrix.cxx }}
-        run: "$CXX --version"
-      - name: Set up Spack
-        uses: spack/setup-spack@v3
+      - uses: astral-sh/setup-uv@v9.0.0
         with:
-          buildcache: true
-      - name: Configure GitHub OCI buildcache
-        shell: bash
+          enable-cache: false
+      - name: Bootstrap Rocky and Spack
+        run: uv run --project dev --no-dev kprof-dev compiler --backend native bootstrap
+      # GitHub Actions applies GITHUB_PATH/GITHUB_ENV only after the step exits.
+      - name: Verify Spack is available to subsequent steps
         run: |
-          set -euo pipefail
-          # Use a stable, padded prefix so cached binaries remain relocatable.
-          sudo install -d -o "$(id -u)" -g "$(id -g)" /opt/spack
-          spack config add 'config:install_tree:root:/opt/spack'
-          spack config add 'config:install_tree:padded_length:128'
-
-          # One OCI image per matrix entry avoids simultaneous index updates.
-          repository="${GITHUB_REPOSITORY#*/}"
-          image="${repository,,}-spack-${COMPILER,,}-${VERSION}"
-          mirror="oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${image}"
-          spack mirror add --scope spack --type binary --unsigned \
-            --oci-username-variable GITHUB_ACTOR \
-            --oci-password-variable GHCR_TOKEN \
-            ghcr-buildcache "$mirror"
-          spack mirror list
+          command -v spack
+          spack --version
+      - name: Install system compiler
+        if: ${{ matrix.compiler == 'NVHPC' || (matrix.compiler == 'GCC' && matrix.version == '14') }}
         env:
           COMPILER: ${{ matrix.compiler }}
           VERSION: ${{ matrix.version }}
-      - name: Configure Spack to use the runner's GCC
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Spack installs only development dependencies. The compiler used
-          # for those dependencies is the system GCC, not a Spack-built
-          # compiler or the compiler selected for the kprof test matrix.
-          spack compiler find /usr/bin
-          system_gcc_major="$(/usr/bin/gcc -dumpversion | cut -d. -f1)"
-          spack config add "packages:c:require::[gcc@${system_gcc_major}]"
-          spack config add "packages:cxx:require::[gcc@${system_gcc_major}]"
-          spack compiler list
-      - name: Install development dependencies with Spack (reuse GHCR cache)
+        run: uv run --project dev --no-dev kprof-dev compiler --backend native system-install "${COMPILER}:${VERSION}"
+      - name: Restore matrix compiler from GHCR (cache only)
+        if: ${{ matrix.compiler == 'Clang' || (matrix.compiler == 'GCC' && matrix.version != '14') }}
         env:
+          COMPILER: ${{ matrix.compiler }}
+          VERSION: ${{ matrix.version }}
+          GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: spack -e dev install
-      - name: Publish development dependencies to GHCR
+        run: uv run --project dev --no-dev kprof-dev compiler --backend native install "${COMPILER}:${VERSION}"
+      - name: Install selected compiler's development dependencies (cache first)
+        env:
+          COMPILER: ${{ matrix.compiler }}
+          VERSION: ${{ matrix.version }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: uv run --project dev --no-dev kprof-dev deps --backend native install --compiler "${COMPILER}:${VERSION}"
+      # Different compiler/variant graphs must never share an implicit lockfile.
+      # Fork PRs may build missing dependencies, but must not publish binaries.
+      - name: Publish selected compiler's development dependencies
         if: ${{ github.event_name != 'pull_request' }}
         env:
+          COMPILER: ${{ matrix.compiler }}
+          VERSION: ${{ matrix.version }}
+          GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: spack -e dev buildcache push --allow-missing --update-index ghcr-buildcache
+        run: uv run --project dev --no-dev kprof-dev deps --backend native push --compiler "${COMPILER}:${VERSION}"
       - name: Configure, build and test
-        shell: spack-bash {0}
-        env:
-          CXX: ${{ matrix.cxx }}
-        run: |
-          set -euo pipefail
-          # The matrix compiler is installed outside Spack; activating the
-          # environment only makes Spack's CMake, Ninja and Catch2 available.
-          spack env activate dev
-          "$CXX" --version
-          cmake --version
-          cmake --preset ci
-          cmake --build --preset ci --parallel
-          ctest --preset ci
-
-  reuse:
-    name: REUSE
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v9.0.0
-      - name: Lint licensing metadata
-        run: uvx reuse lint
+        run: bash .github/scripts/build-test.sh

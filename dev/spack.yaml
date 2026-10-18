@@ -9,4 +9,7 @@ spack:
     kprof_dev: ./share/spack
   concretizer:
     unify: true
+  packages:
+    all:
+      target: [x86_64_v3]
 
