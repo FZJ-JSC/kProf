@@ -9,20 +9,4 @@ spack:
     kprof_dev: ./share/spack
   concretizer:
     unify: true
-  packages:
-    gcc:
-      externals:
-      - spec: gcc@16.2.1 languages:='c,c++'
-        prefix: /usr
-        extra_attributes:
-          compilers:
-            c: /usr/bin/gcc
-            cxx: /usr/bin/g++
-    llvm:
-      externals:
-      - spec: llvm@22.1.8+clang~flang~lld~lldb
-        prefix: /usr
-        extra_attributes:
-          compilers:
-            c: /usr/bin/clang
-            cxx: /usr/bin/clang++
+
