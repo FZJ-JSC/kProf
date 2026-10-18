@@ -16,4 +16,5 @@ class KprofDev(BundlePackage):
     # Run dependencies make them available in the Spack environment view.
     depends_on("cmake@4.3:", type=("build", "run"))
     depends_on("ninja", type=("build", "run"))
+    depends_on("lyra", type=("build", "link", "run"))
     depends_on("catch2@3:", when="+test", type=("link", "run"))
