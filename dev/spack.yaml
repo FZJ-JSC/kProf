@@ -4,7 +4,7 @@
 
 spack:
   specs:
-  - kprof-dev+test
+    - kprof-dev@1.1+test
   repos:
     kprof_dev: ./share/spack
   concretizer:

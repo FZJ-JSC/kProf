@@ -8,7 +8,7 @@ from spack.package import *
 class KprofDev(BundlePackage):
     """Development environment for kprof."""
 
-    version("1.0")
+    version("1.1")
 
     variant("test", default=False, description="Install test dependencies")
 
