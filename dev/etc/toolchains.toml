@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: 2026 kprof developers
+# SPDX-License-Identifier: Apache-2.0
+# Single source of truth for compiler-cache provisioning (desktop and CI).
+
+[platform]
+image = "rockylinux/rockylinux:10"
+target = "x86_64_v3"
+volume = "kprof-spack-rocky10-v3"
+# After publishing the prebuilt image, pass --image on desktop and set the
+# KPROF_BOOTSTRAP_IMAGE GitHub Actions variable. Bare Rocky is a fallback.
+
+# Single Rocky bootstrap package list, reused by desktop containers and CI.
+# GitHub Actions installs only bash/git/tar/python3 before checking out the repo.
+[bootstrap]
+packages = [
+  "bash", "git", "python3", "python3-pip", "make", "patch", "curl",
+  "tar", "gzip", "bzip2", "xz", "unzip", "which", "diffutils",
+  "findutils", "zstd", "file", "perl", "libstdc++", "ca-certificates",
+]
+system_compiler = "GCC:14"
+
+[spack]
+image_source_root = "/opt/kprof"
+version = "v1.2.2"
+packages_version = "v2026.10.0"
+install_tree = "/opt/spack"
+
+[buildcache]
+name = "kprof-compiler-cache"
+image = "ghcr.io/fzj-jsc/kprof-spack-compilers-rocky10-v3"
+
+[[compilers]]
+selector = "GCC:15"
+spec = "gcc@15.3.0 target=x86_64_v3"
+cxx = "bin/g++"
+
+[[compilers]]
+selector = "GCC:16"
+spec = "gcc@16.1.0 target=x86_64_v3"
+cxx = "bin/g++"
+
+[[compilers]]
+selector = "Clang:22"
+spec = "llvm@22.1.5+clang~flang~lld~lldb target=x86_64_v3"
+cxx = "bin/clang++"
+
+# RPM-provided compilers. Unlike the Spack compiler roots above, these are
+# installed directly into an ephemeral CI container; they are never cached.
+[[system_compilers]]
+selector = "GCC:14"
+packages = ["gcc", "gcc-c++", "gcc-gfortran"]
+cxx = "/usr/bin/g++"
+expected_major = "14"
+
+[[system_compilers]]
+selector = "GCC:15"
+packages = ["gcc-toolset-15", "gcc-toolset-15-gcc-c++"]
+cxx = "/opt/rh/gcc-toolset-15/root/usr/bin/g++"
+expected_major = "15"
+toolset_env = "/usr/lib/gcc-toolset/15-env.source"
+
+[[system_compilers]]
+selector = "Clang:21"
+packages = ["llvm-toolset"]
+cxx = "/usr/bin/clang++"
+expected_major = "21"
+
+[[system_compilers]]
+selector = "NVHPC:26.5"
+repo_url = "https://developer.download.nvidia.com/hpc-sdk/rhel/nvhpc.repo"
+packages = ["nvhpc-26-5"]
+cxx = "/opt/nvidia/hpc_sdk/Linux_x86_64/26.5/compilers/bin/nvc++"
+
+[[system_compilers]]
+selector = "NVHPC:26.9"
+repo_url = "https://developer.download.nvidia.com/hpc-sdk/rhel/nvhpc.repo"
+packages = ["nvhpc-26-9"]
+cxx = "/opt/nvidia/hpc_sdk/Linux_x86_64/26.9/compilers/bin/nvc++"

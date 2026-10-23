@@ -12,13 +12,6 @@
 #include <string_view>
 #include <vector>
 
-#if defined(__clang__)
-#define KPROF_DO_NOT_OPTIMIZE __attribute__((optnone))
-#elif defined(__GNUC__) || defined(__GNUG__)
-#define KPROF_DO_NOT_OPTIMIZE __attribute__((optimize(0)))
-#else
-#define KPROF_DO_NOT_OPTIMIZE
-#endif
 
 namespace kprof {
 

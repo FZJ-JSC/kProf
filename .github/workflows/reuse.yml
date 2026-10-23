@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 kprof developers
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: REUSE
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    container: rockylinux/rockylinux:10
+    steps:
+      - name: Install Rocky prerequisites
+        shell: sh
+        run: |
+          dnf install -y bash git tar gzip python3
+          printf '%s\n' /usr/bin /bin /usr/sbin /sbin >> "$GITHUB_PATH"
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v9.0.0
+      - name: Lint licensing metadata
+        shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+        run: |
+          export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+          command -v realpath
+          command -v dirname
+          uvx --python 3.12 reuse lint
